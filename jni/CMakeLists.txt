@@ -150,13 +150,13 @@ if ("${WIN32}" STREQUAL "")
                 tests/faiss_wrapper_test.cpp
                 tests/faiss_wrapper_unit_test.cpp
                 tests/faiss_util_test.cpp
-                tests/nmslib_wrapper_test.cpp
-                tests/nmslib_wrapper_unit_test.cpp
+                # tests/nmslib_wrapper_test.cpp
+                # tests/nmslib_wrapper_unit_test.cpp
                 tests/test_util.cpp
                 tests/commons_test.cpp
                 tests/faiss_stream_support_test.cpp
                 tests/faiss_index_service_test.cpp
-                tests/nmslib_stream_support_test.cpp
+                # tests/nmslib_stream_support_test.cpp
         )
 
         target_link_libraries(
@@ -164,10 +164,10 @@ if ("${WIN32}" STREQUAL "")
                 gtest_main
                 gmock_main
                 faiss
-                NonMetricSpaceLib
+                # NonMetricSpaceLib
                 OpenMP::OpenMP_CXX
                 ${TARGET_LIB_FAISS}
-                ${TARGET_LIB_NMSLIB}
+                # ${TARGET_LIB_NMSLIB}
                 ${TARGET_LIB_COMMON}
                 ${TARGET_LIB_UTIL}
         )

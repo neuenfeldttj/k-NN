@@ -44,6 +44,10 @@ import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.plugin.stats.KNNCounter;
+import org.opensearch.knn.profile.query.KNNQueryProfiler;
+import org.opensearch.knn.profile.query.KNNQueryTimingType;
+import org.opensearch.search.profile.Timer;
+import org.opensearch.search.profile.query.QueryTimingType;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -80,7 +84,9 @@ public class KNNWeight extends Weight {
     private final QuantizationService quantizationService;
     private final KnnExplanation knnExplanation;
 
-    public KNNWeight(KNNQuery query, float boost) {
+    private final KNNQueryProfiler profile;
+
+    public KNNWeight(KNNQuery query, float boost, KNNQueryProfiler profile) {
         super(query);
         this.knnQuery = query;
         this.boost = boost;
@@ -89,9 +95,10 @@ public class KNNWeight extends Weight {
         this.exactSearcher = DEFAULT_EXACT_SEARCHER;
         this.quantizationService = QuantizationService.getInstance();
         this.knnExplanation = new KnnExplanation();
+        this.profile = profile;
     }
 
-    public KNNWeight(KNNQuery query, float boost, Weight filterWeight) {
+    public KNNWeight(KNNQuery query, float boost, Weight filterWeight, KNNQueryProfiler profile) {
         super(query);
         this.knnQuery = query;
         this.boost = boost;
@@ -100,6 +107,7 @@ public class KNNWeight extends Weight {
         this.exactSearcher = DEFAULT_EXACT_SEARCHER;
         this.quantizationService = QuantizationService.getInstance();
         this.knnExplanation = new KnnExplanation();
+        this.profile = profile;
     }
 
     public static void initialize(ModelDao modelDao) {
@@ -260,12 +268,20 @@ public class KNNWeight extends Weight {
 
     @Override
     public ScorerSupplier scorerSupplier(LeafReaderContext context) throws IOException {
+        Timer timer = profile.context(context).getTimer(KNNQueryTimingType.SEARCH_LEAF);
+
         return new ScorerSupplier() {
             long cost = -1L;
 
             @Override
             public Scorer get(long leadCost) throws IOException {
-                final Map<Integer, Float> docIdToScoreMap = searchLeaf(context, knnQuery.getK()).getResult();
+                final Map<Integer, Float> docIdToScoreMap;
+                timer.start();
+                try {
+                    docIdToScoreMap = searchLeaf(context, knnQuery.getK()).getResult();
+                } finally {
+                    timer.stop();
+                }
                 cost = docIdToScoreMap.size();
                 if (docIdToScoreMap.isEmpty()) {
                     return KNNScorer.emptyScorer();

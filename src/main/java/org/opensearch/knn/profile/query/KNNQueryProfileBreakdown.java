@@ -5,13 +5,13 @@
 
 package org.opensearch.knn.profile.query;
 
+import org.opensearch.search.profile.AbstractTimingProfileBreakdown;
 import org.opensearch.search.profile.Timer;
-import org.opensearch.search.profile.query.QueryTimingType;
 
-public class KNNQueryProfileBreakdown extends AbstractTimingProfileBreakdown<KNNQueryTimingType> implements TimingProfileContext {
+public class KNNQueryProfileBreakdown extends AbstractTimingProfileBreakdown<KNNQueryTimingType> implements KNNProfileContext {
 
     public KNNQueryProfileBreakdown() {
-        for(KNNQueryTimingType type : KNNQueryTimingType.values()) {
+        for (KNNQueryTimingType type : KNNQueryTimingType.values()) {
             timers.put(type, new Timer());
         }
     }

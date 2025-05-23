@@ -84,6 +84,8 @@ import org.opensearch.knn.plugin.transport.UpdateModelGraveyardAction;
 import org.opensearch.knn.plugin.transport.UpdateModelGraveyardTransportAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataTransportAction;
+import org.opensearch.knn.profile.query.KNNQueryProfileTree;
+import org.opensearch.knn.profile.query.KNNQueryProfiler;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCache;
 import org.opensearch.knn.training.TrainingJobClusterStateListener;
 import org.opensearch.knn.training.TrainingJobRunner;
@@ -106,6 +108,7 @@ import org.opensearch.script.ScriptContext;
 import org.opensearch.script.ScriptEngine;
 import org.opensearch.script.ScriptService;
 import org.opensearch.search.deciders.ConcurrentSearchRequestDecider;
+import org.opensearch.search.profile.AbstractProfiler;
 import org.opensearch.threadpool.ExecutorBuilder;
 import org.opensearch.threadpool.FixedExecutorBuilder;
 import org.opensearch.threadpool.ThreadPool;
@@ -184,6 +187,16 @@ public class KNNPlugin extends Plugin
             PlatformUtils.isAVX512SupportedBySystem();
             PlatformUtils.isAVX512SPRSupportedBySystem();
         });
+    }
+
+    @Override
+    public ProfilerProvider getProfilerProvider() {
+        return new ProfilerProvider() {
+            @Override
+            public AbstractProfiler<?, ?, ?, ?, ?> getProfiler(boolean isConcurrentSearchEnabled) {
+                return new KNNQueryProfiler(new KNNQueryProfileTree());
+            }
+        };
     }
 
     @Override

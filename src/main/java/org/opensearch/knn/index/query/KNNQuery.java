@@ -23,6 +23,9 @@ import org.apache.lucene.search.join.BitSetProducer;
 import org.opensearch.common.StopWatch;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
+import org.opensearch.knn.profile.query.KNNProfileContext;
+import org.opensearch.knn.profile.query.KNNQueryProfiler;
+import org.opensearch.search.internal.ContextIndexSearcher;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -173,6 +176,10 @@ public class KNNQuery extends Query {
      */
     @Override
     public Weight createWeight(IndexSearcher searcher, ScoreMode scoreMode, float boost) throws IOException {
+
+        ContextIndexSearcher context_searcher = (ContextIndexSearcher) searcher;
+        KNNQueryProfiler profiler = (KNNQueryProfiler) context_searcher.getPluginProfiler(KNNQueryProfiler.class);
+
         StopWatch stopWatch = null;
         if (log.isDebugEnabled()) {
             stopWatch = new StopWatch().start();
@@ -190,9 +197,9 @@ public class KNNQuery extends Query {
         }
 
         if (filterWeight != null) {
-            return new KNNWeight(this, boost, filterWeight);
+            return new KNNWeight(this, boost, filterWeight, (KNNProfileContext) profiler);
         }
-        return new KNNWeight(this, boost);
+        return new KNNWeight(this, boost, (KNNProfileContext) profiler);
     }
 
     private Weight getFilterWeight(IndexSearcher searcher) throws IOException {

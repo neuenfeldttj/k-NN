@@ -5,14 +5,23 @@
 
 package org.opensearch.knn.profile.query;
 
-import org.apache.lucene.search.Query;
 import org.opensearch.knn.index.query.KNNQuery;
-import org.opensearch.search.profile.AbstractInternalProfileTree;
 import org.opensearch.search.profile.AbstractProfiler;
-import org.opensearch.search.profile.query.QueryTimingType;
+import org.opensearch.search.profile.AbstractTimingProfileBreakdown;
 
-public class KNNQueryProfiler extends AbstractProfiler<AbstractTimingProfileBreakdown<QueryTimingType>, QueryTimingType, KNNQuery, TimingProfileResult> {
-    public KNNQueryProfiler(AbstractInternalProfileTree<AbstractTimingProfileBreakdown<QueryTimingType>, QueryTimingType> profileTree) {
+public class KNNQueryProfiler extends AbstractProfiler<
+    AbstractTimingProfileBreakdown<KNNQueryTimingType>,
+    KNNQueryTimingType,
+    KNNQuery,
+    KNNQueryProfileResult,
+    KNNQueryProfileShardResult> {
+
+    public KNNQueryProfiler(KNNQueryProfileTree profileTree) {
         super(profileTree);
+    }
+
+    @Override
+    public KNNQueryProfileShardResult createProfileShardResult() {
+        return new KNNQueryProfileShardResult(getTree());
     }
 }

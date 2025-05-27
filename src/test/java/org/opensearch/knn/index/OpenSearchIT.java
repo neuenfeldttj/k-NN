@@ -1254,6 +1254,86 @@ public class OpenSearchIT extends KNNRestTestCase {
 
     }
 
+    public void testKNNSearchWithProfilerEnabled() throws Exception {
+        createKnnIndex(INDEX_NAME, createKnnIndexMapping(Arrays.asList("vector1", "vector2"), Arrays.asList(2, 3)));
+        // Add docs with knn_vector fields
+        for (int i = 1; i <= 20; i++) {
+            Float[] vector1 = { (float) i, (float) (i + 1) };
+            Float[] vector2 = { (float) i, (float) (i + 1), (float) (i + 2) };
+            addKnnDoc(
+                    INDEX_NAME,
+                    Integer.toString(i),
+                    Arrays.asList("vector1", "vector2"),
+                    Arrays.asList(vector1, vector2)
+            );
+        }
+        int k = 10; // nearest 10 neighbors
+
+        // Create match_all search body, all fields
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+                .startObject()
+                .field("fields", new String[] { "*" })
+                .field("profile", true)
+                .startObject("query")
+                .startObject("match_all")
+                .endObject()
+                .endObject()
+                .endObject();
+        Response response = searchKNNIndex(INDEX_NAME, builder, k);
+        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response.getEntity()), "vector1"));
+        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response.getEntity()), "vector2"));
+
+        // Create match_all search body, some fields
+        builder = XContentFactory.jsonBuilder()
+                .startObject()
+                .field("fields", new String[] { "vector1", "vector2" })
+                .field("profile", true)
+                .startObject("query")
+                .startObject("match_all")
+                .endObject()
+                .endObject()
+                .endObject();
+        Response response2 = searchKNNIndex(INDEX_NAME, builder, k);
+        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response2.getEntity()), "vector1"));
+        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response2.getEntity()), "vector2"));
+
+        // Create knn search body, all fields
+        builder = XContentFactory.jsonBuilder()
+                .startObject()
+                .field("fields", new String[] { "*" })
+                .field("profile", true)
+                .startObject("query")
+                .startObject("knn")
+                .startObject("vector2")
+                .field("vector", new float[] { 2.0f, 2.0f, 2.0f })
+                .field("k", k)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject();
+        Response response3 = searchKNNIndex(INDEX_NAME, builder, k);
+        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response3.getEntity()), "vector1"));
+        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response3.getEntity()), "vector2"));
+
+        // Create knn search body, some fields
+        builder = XContentFactory.jsonBuilder()
+                .startObject()
+                .field("fields", new String[] { "vector1", "vector2" })
+                .field("profile", true)
+                .startObject("query")
+                .startObject("knn")
+                .startObject("vector2")
+                .field("vector", new float[] { 2.0f, 2.0f, 2.0f })
+                .field("k", k)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject();
+        Response response4 = searchKNNIndex(INDEX_NAME, builder, k);
+        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response4.getEntity()), "vector1"));
+        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response4.getEntity()), "vector2"));
+    }
+
     private List<KNNResult> getResults(final String indexName, final String fieldName, final float[] vector, final int k)
         throws IOException, ParseException {
         final Response searchResponseField = searchKNNIndex(indexName, new KNNQueryBuilder(fieldName, vector, k), k);

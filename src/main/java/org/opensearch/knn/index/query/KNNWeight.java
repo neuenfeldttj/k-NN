@@ -45,6 +45,7 @@ import org.opensearch.knn.indices.ModelUtil;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.opensearch.knn.profile.query.KNNProfileContext;
+import org.opensearch.knn.profile.query.KNNQueryProfiler;
 import org.opensearch.knn.profile.query.KNNQueryTimingType;
 import org.opensearch.search.profile.Timer;
 
@@ -267,7 +268,7 @@ public class KNNWeight extends Weight {
 
     @Override
     public ScorerSupplier scorerSupplier(LeafReaderContext context) throws IOException {
-        if(profile != null) {
+        if (profile != null) {
             Timer timer = profile.context(context).getTimer(KNNQueryTimingType.SEARCH_LEAF);
 
             return new ScorerSupplier() {
@@ -276,11 +277,11 @@ public class KNNWeight extends Weight {
                 @Override
                 public Scorer get(long leadCost) throws IOException {
                     final Map<Integer, Float> docIdToScoreMap;
-                    timer.start();
+//                    timer.start();
                     try {
                         docIdToScoreMap = searchLeaf(context, knnQuery.getK()).getResult();
                     } finally {
-                        timer.stop();
+//                        timer.stop();
                     }
                     cost = docIdToScoreMap.size();
                     if (docIdToScoreMap.isEmpty()) {
@@ -297,8 +298,7 @@ public class KNNWeight extends Weight {
                 }
             };
 
-        }
-        else {
+        } else {
             return new ScorerSupplier() {
                 long cost = -1L;
 

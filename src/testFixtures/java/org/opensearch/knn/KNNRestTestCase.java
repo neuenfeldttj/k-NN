@@ -353,6 +353,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         return searchKNNIndex(index, xContentBuilder.toString(), resultSize);
     }
 
+
     /**
      * Run KNN Search on Index with json string query
      */

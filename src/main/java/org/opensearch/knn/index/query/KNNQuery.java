@@ -25,7 +25,9 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.profile.query.KNNProfileContext;
 import org.opensearch.knn.profile.query.KNNQueryProfiler;
+import org.opensearch.knn.profile.query.KNNQueryTimingType;
 import org.opensearch.search.internal.ContextIndexSearcher;
+import org.opensearch.search.profile.AbstractTimingProfileBreakdown;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -179,6 +181,7 @@ public class KNNQuery extends Query {
 
         ContextIndexSearcher context_searcher = (ContextIndexSearcher) searcher;
         KNNQueryProfiler profiler = (KNNQueryProfiler) context_searcher.getPluginProfiler(KNNQueryProfiler.class);
+        AbstractTimingProfileBreakdown<KNNQueryTimingType> profile = profiler.getQueryBreakdown(this);
 
         StopWatch stopWatch = null;
         if (log.isDebugEnabled()) {
@@ -197,9 +200,9 @@ public class KNNQuery extends Query {
         }
 
         if (filterWeight != null) {
-            return new KNNWeight(this, boost, filterWeight, (KNNProfileContext) profiler);
+            return new KNNWeight(this, boost, filterWeight, (KNNProfileContext) profile);
         }
-        return new KNNWeight(this, boost, (KNNProfileContext) profiler);
+        return new KNNWeight(this, boost, (KNNProfileContext) profile);
     }
 
     private Weight getFilterWeight(IndexSearcher searcher) throws IOException {

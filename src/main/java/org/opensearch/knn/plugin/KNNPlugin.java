@@ -84,6 +84,8 @@ import org.opensearch.knn.plugin.transport.UpdateModelGraveyardAction;
 import org.opensearch.knn.plugin.transport.UpdateModelGraveyardTransportAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataTransportAction;
+import org.opensearch.knn.profile.query.KNNConcurrentQueryProfileTree;
+import org.opensearch.knn.profile.query.KNNConcurrentQueryProfiler;
 import org.opensearch.knn.profile.query.KNNQueryProfileTree;
 import org.opensearch.knn.profile.query.KNNQueryProfiler;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCache;
@@ -194,7 +196,9 @@ public class KNNPlugin extends Plugin
         return new ProfilerProvider() {
             @Override
             public AbstractProfiler<?, ?, ?, ?, ?> getProfiler(boolean isConcurrentSearchEnabled) {
-                return new KNNQueryProfiler(new KNNQueryProfileTree());
+                return (isConcurrentSearchEnabled)
+                        ? new KNNConcurrentQueryProfiler(new KNNConcurrentQueryProfileTree())
+                        : new KNNQueryProfiler(new KNNQueryProfileTree());
             }
         };
     }

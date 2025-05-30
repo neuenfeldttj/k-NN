@@ -45,6 +45,7 @@ import org.opensearch.knn.indices.ModelUtil;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.opensearch.knn.profile.query.KNNProfileContext;
+import org.opensearch.knn.profile.query.KNNQueryProfileBreakdown;
 import org.opensearch.knn.profile.query.KNNQueryProfiler;
 import org.opensearch.knn.profile.query.KNNQueryTimingType;
 import org.opensearch.search.profile.Timer;
@@ -58,6 +59,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
+import static java.lang.Thread.sleep;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
@@ -277,11 +279,11 @@ public class KNNWeight extends Weight {
                 @Override
                 public Scorer get(long leadCost) throws IOException {
                     final Map<Integer, Float> docIdToScoreMap;
-//                    timer.start();
+                    timer.start();
                     try {
                         docIdToScoreMap = searchLeaf(context, knnQuery.getK()).getResult();
                     } finally {
-//                        timer.stop();
+                        timer.stop();
                     }
                     cost = docIdToScoreMap.size();
                     if (docIdToScoreMap.isEmpty()) {
@@ -342,6 +344,10 @@ public class KNNWeight extends Weight {
 
         final int maxDoc = context.reader().maxDoc();
         int cardinality = filterBitSet.cardinality();
+        if(profile != null) {
+            KNNQueryProfileBreakdown pb = (KNNQueryProfileBreakdown) profile.context(context);
+            pb.setCardinality(cardinality);
+        }
         // We don't need to go to JNI layer if no documents are found which satisfy the filters
         // We should give this condition a deeper look that where it should be placed. For now I feel this is a good
         // place,

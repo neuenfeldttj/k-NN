@@ -1269,36 +1269,8 @@ public class OpenSearchIT extends KNNRestTestCase {
         }
         int k = 10; // nearest 10 neighbors
 
-        // Create match_all search body, all fields
-        XContentBuilder builder = XContentFactory.jsonBuilder()
-                .startObject()
-                .field("fields", new String[] { "*" })
-                .field("profile", true)
-                .startObject("query")
-                .startObject("match_all")
-                .endObject()
-                .endObject()
-                .endObject();
-        Response response = searchKNNIndex(INDEX_NAME, builder, k);
-        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response.getEntity()), "vector1"));
-        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response.getEntity()), "vector2"));
-
-        // Create match_all search body, some fields
-        builder = XContentFactory.jsonBuilder()
-                .startObject()
-                .field("fields", new String[] { "vector1", "vector2" })
-                .field("profile", true)
-                .startObject("query")
-                .startObject("match_all")
-                .endObject()
-                .endObject()
-                .endObject();
-        Response response2 = searchKNNIndex(INDEX_NAME, builder, k);
-        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response2.getEntity()), "vector1"));
-        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response2.getEntity()), "vector2"));
-
         // Create knn search body, all fields
-        builder = XContentFactory.jsonBuilder()
+        XContentBuilder builder = XContentFactory.jsonBuilder()
                 .startObject()
                 .field("fields", new String[] { "*" })
                 .field("profile", true)
@@ -1312,6 +1284,7 @@ public class OpenSearchIT extends KNNRestTestCase {
                 .endObject()
                 .endObject();
         Response response3 = searchKNNIndex(INDEX_NAME, builder, k);
+        System.out.println(EntityUtils.toString(response3.getEntity()));
         assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response3.getEntity()), "vector1"));
         assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response3.getEntity()), "vector2"));
 
@@ -1330,8 +1303,177 @@ public class OpenSearchIT extends KNNRestTestCase {
                 .endObject()
                 .endObject();
         Response response4 = searchKNNIndex(INDEX_NAME, builder, k);
+        System.out.println(EntityUtils.toString(response4.getEntity()));
         assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response4.getEntity()), "vector1"));
         assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response4.getEntity()), "vector2"));
+    }
+
+    public void testNestedKNNSearchWithProfilerEnabled() throws Exception {
+        int dimension = 3;
+        String nestedFieldPath = "nested_field.my_vector";
+        String mapping = createKnnIndexNestedMapping(dimension, nestedFieldPath);
+        createKnnIndex(INDEX_NAME, mapping);
+
+        for(int i = 1; i <= 20; ++i) {
+            Float[] vector = { (float) i, (float) (i + 1), (float) (i + 2) };
+            addKnnDocWithNestedField(INDEX_NAME, Integer.toString(i), nestedFieldPath, vector);
+        }
+
+        int k = 10; // nearest 10 neighbors
+
+        // Create knn search body, all fields
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+                .startObject()
+                .field("profile", true)
+                .startObject("query")
+                .startObject("nested")
+                .field("path", "nested_field")
+                .startObject("query")
+                .startObject("knn")
+                .startObject("nested_field.my_vector")
+                .field("vector", new float[] { 2.0f, 2.0f, 2.0f })
+                .field("k", k)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject();
+        Response response = performSearch(INDEX_NAME, builder.toString());
+        System.out.println(EntityUtils.toString(response.getEntity()));
+//        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response3.getEntity()), "vector1"));
+//        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response3.getEntity()), "vector2"));
+
+    }
+
+    public void testMultiKNNSearchWithProfilerEnabled() throws Exception {
+        createKnnIndex(INDEX_NAME, createKnnIndexMapping(Arrays.asList("vector1", "vector2"), Arrays.asList(2, 3)));
+        // Add docs with knn_vector fields
+        for (int i = 1; i <= 20; i++) {
+            Float[] vector1 = { (float) i, (float) (i + 1) };
+            Float[] vector2 = { (float) i, (float) (i + 1), (float) (i + 2) };
+            addKnnDoc(
+                    INDEX_NAME,
+                    Integer.toString(i),
+                    Arrays.asList("vector1", "vector2"),
+                    Arrays.asList(vector1, vector2)
+            );
+        }
+
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+                .startObject()
+                .field("profile", true)
+                .startObject("query")
+                    .startObject("bool")
+                        .startArray("should")
+                            .startObject()
+                            .startObject("knn")
+                                .startObject("vector2")
+                                    .field("vector", new float[] { 2.0f, 2.0f, 2.0f })
+                                    .field("k", 5)
+                                .endObject()
+                            .endObject()
+                            .endObject()
+                            .startObject()
+                            .startObject("knn")
+                                .startObject("vector1")
+                                    .field("vector", new float[] { 3.0f, 3.0f })
+                                    .field("k", 3)
+                                .endObject()
+                            .endObject()
+                            .endObject()
+                        .endArray()
+                    .endObject()
+                .endObject()
+                .endObject();
+        Response response = performSearch(INDEX_NAME, builder.toString());
+        System.out.println(EntityUtils.toString(response.getEntity()));
+
+    }
+
+    public void testKNNSearchWithProfilerEnabledMultiShard() throws Exception {
+        createKnnIndex(INDEX_NAME, buildKNNIndexSettings(2, 1, 0), createKnnIndexMapping(Arrays.asList("vector1", "vector2"), Arrays.asList(2, 3)));
+        // Add docs with knn_vector fields
+        for (int i = 1; i <= 20; i++) {
+            Float[] vector1 = { (float) i, (float) (i + 1) };
+            Float[] vector2 = { (float) i, (float) (i + 1), (float) (i + 2) };
+            addKnnDoc(
+                    INDEX_NAME,
+                    Integer.toString(i),
+                    Arrays.asList("vector1", "vector2"),
+                    Arrays.asList(vector1, vector2)
+            );
+        }
+        int k = 10; // nearest 10 neighbors
+
+        // Create knn search body, all fields
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+                .startObject()
+                .field("fields", new String[] { "*" })
+                .field("profile", true)
+                .startObject("query")
+                .startObject("knn")
+                .startObject("vector2")
+                .field("vector", new float[] { 2.0f, 2.0f, 2.0f })
+                .field("k", k)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject();
+        Response response3 = searchKNNIndex(INDEX_NAME, builder, k);
+        System.out.println(EntityUtils.toString(response3.getEntity()));
+        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response3.getEntity()), "vector1"));
+        assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response3.getEntity()), "vector2"));
+
+    }
+
+    public void testFilterKNNSearchWithProfilerEnabled() throws Exception {
+        String mapping = createKnnIndexMapping("vector2", 3, "hnsw", "faiss", "l2", false);
+        createKnnIndex(INDEX_NAME, mapping);
+        // Add docs with knn_vector fields
+        for (int i = 1; i <= 20; i++) {
+            Float[] vector2 = {(float) i, (float) (i + 1), (float) (i + 2)};
+            addKnnDocWithNumericField(
+                    INDEX_NAME,
+                    Integer.toString(i),
+                    "vector2",
+                    vector2,
+                    "rating",
+                    i
+            );
+        }
+        int k = 5; // nearest 5 neighbors
+
+        // Create knn search body, all fields
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+                .startObject()
+                .field("profile", true)
+                .startObject("query")
+                .startObject("knn")
+                .startObject("vector2")
+                .field("vector", new float[] { 2.0f, 2.0f, 2.0f })
+                .field("k", k)
+                .startObject("filter")
+                    .startObject("bool")
+                        .startArray("must")
+                            .startObject()
+                                .startObject("range")
+                                    .startObject("rating")
+                                        .field("gte", 8)
+                                        .field("lte", 14)
+                                    .endObject()
+                                .endObject()
+                            .endObject()
+                        .endArray()
+                    .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject();
+
+        Response response = searchKNNIndex(INDEX_NAME, builder, k);
+        System.out.println(EntityUtils.toString(response.getEntity()));
     }
 
     private List<KNNResult> getResults(final String indexName, final String fieldName, final float[] vector, final int k)

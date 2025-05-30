@@ -358,7 +358,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
      * Run KNN Search on Index with json string query
      */
     protected Response searchKNNIndex(String index, String query, int resultSize) throws IOException {
-        Request request = new Request("POST", "/" + index + "/_search");
+        Request request = new Request("POST", "/" + index + "/_search?pretty=true");
         request.setJsonEntity(query);
 
         request.addParameter("size", Integer.toString(resultSize));
@@ -696,7 +696,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
             if (i == fieldPathArray.length - 1) {
                 xContentBuilder.field("type", "knn_vector").field("dimension", dimensions.toString());
             } else {
-                xContentBuilder.startObject("properties");
+                xContentBuilder.field("type", "nested").startObject("properties");
             }
         }
 
@@ -778,6 +778,21 @@ public class KNNRestTestCase extends ODFERestTestCase {
         Request request = new Request("POST", "/" + index + "/_doc/" + docId + "?refresh=true");
 
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field(fieldName, vector).endObject();
+        request.setJsonEntity(builder.toString());
+        client().performRequest(request);
+
+        request = new Request("POST", "/" + index + "/_refresh");
+        Response response = client().performRequest(request);
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+    }
+
+    /**
+     * Add a single KNN Doc with a numeric field to an index
+     */
+    protected <T> void addKnnDocWithNumericField(String index, String docId, String vectorFieldName, T vector, String numericFieldName, long val) throws IOException {
+        Request request = new Request("POST", "/" + index + "/_doc/" + docId + "?refresh=true");
+
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field(vectorFieldName, vector).field(numericFieldName, val).endObject();
         request.setJsonEntity(builder.toString());
         client().performRequest(request);
 
@@ -1072,9 +1087,13 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     protected Settings buildKNNIndexSettings(int approximateThreshold) {
+        return buildKNNIndexSettings(1, 0, approximateThreshold);
+    }
+
+    protected Settings buildKNNIndexSettings(int shards, int reps, int approximateThreshold) {
         Settings.Builder builder = Settings.builder()
-            .put("number_of_shards", 1)
-            .put("number_of_replicas", 0)
+            .put("number_of_shards", shards)
+            .put("number_of_replicas", reps)
             .put(KNN_INDEX, true)
             .put(INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, approximateThreshold);
 

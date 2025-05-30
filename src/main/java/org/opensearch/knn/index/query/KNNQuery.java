@@ -23,6 +23,7 @@ import org.apache.lucene.search.join.BitSetProducer;
 import org.opensearch.common.StopWatch;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
+import org.opensearch.knn.profile.query.KNNConcurrentQueryProfiler;
 import org.opensearch.knn.profile.query.KNNProfileContext;
 import org.opensearch.knn.profile.query.KNNQueryProfiler;
 import org.opensearch.knn.profile.query.KNNQueryTimingType;
@@ -181,7 +182,11 @@ public class KNNQuery extends Query {
 
         ContextIndexSearcher context_searcher = (ContextIndexSearcher) searcher;
         KNNQueryProfiler profiler = (KNNQueryProfiler) context_searcher.getPluginProfiler(KNNQueryProfiler.class);
+        if(profiler == null) {
+            profiler = (KNNConcurrentQueryProfiler) context_searcher.getPluginProfiler(KNNConcurrentQueryProfiler.class);
+        }
         AbstractTimingProfileBreakdown<KNNQueryTimingType> profile = profiler.getQueryBreakdown(this);
+        profiler.pollLastElement();
 
         StopWatch stopWatch = null;
         if (log.isDebugEnabled()) {

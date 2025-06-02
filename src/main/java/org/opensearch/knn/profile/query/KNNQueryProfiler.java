@@ -11,9 +11,7 @@ import org.opensearch.search.profile.AbstractTimingProfileBreakdown;
 
 public class KNNQueryProfiler extends AbstractProfiler<
     AbstractTimingProfileBreakdown<KNNQueryTimingType>,
-    KNNQueryTimingType,
     KNNQuery,
-    KNNQueryProfileResult,
     KNNQueryProfileShardResult> {
 
     public KNNQueryProfiler(KNNQueryProfileTree profileTree) {

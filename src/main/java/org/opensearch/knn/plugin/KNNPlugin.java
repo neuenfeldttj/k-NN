@@ -195,7 +195,7 @@ public class KNNPlugin extends Plugin
     public ProfilerProvider getProfilerProvider() {
         return new ProfilerProvider() {
             @Override
-            public AbstractProfiler<?, ?, ?, ?, ?> getProfiler(boolean isConcurrentSearchEnabled) {
+            public AbstractProfiler<?, ?, ?> getProfiler(boolean isConcurrentSearchEnabled) {
                 return (isConcurrentSearchEnabled)
                     ? new KNNConcurrentQueryProfiler(new KNNConcurrentQueryProfileTree())
                     : new KNNQueryProfiler(new KNNQueryProfileTree());

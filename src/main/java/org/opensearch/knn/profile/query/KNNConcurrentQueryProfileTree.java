@@ -5,9 +5,8 @@
 
 package org.opensearch.knn.profile.query;
 
-import org.apache.lucene.index.LeafReaderContext;
-import org.apache.lucene.search.Collector;
 import org.opensearch.search.profile.AbstractTimingProfileBreakdown;
+import org.opensearch.search.profile.ProfileResult;
 import org.opensearch.search.profile.query.ConcurrentQueryTimingProfileBreakdown;
 
 import java.util.List;
@@ -17,24 +16,6 @@ public class KNNConcurrentQueryProfileTree extends KNNQueryProfileTree {
     @Override
     protected AbstractTimingProfileBreakdown<KNNQueryTimingType> createProfileBreakdown() {
         return new KNNConcurrentQueryProfileBreakdown();
-    }
-
-    @Override
-    protected KNNQueryProfileResult createProfileResult(
-        String type,
-        String description,
-        AbstractTimingProfileBreakdown<KNNQueryTimingType> breakdown,
-        List<KNNQueryProfileResult> childrenProfileResults
-    ) {
-        assert breakdown instanceof KNNConcurrentQueryProfileBreakdown;
-        final KNNConcurrentQueryProfileBreakdown concurrentBreakdown = (KNNConcurrentQueryProfileBreakdown) breakdown;
-        return new KNNQueryProfileResult(
-            type,
-            description,
-            concurrentBreakdown.toBreakdownMap(),
-            concurrentBreakdown.toDebugMap(),
-            childrenProfileResults
-        );
     }
 
     /**
@@ -47,7 +28,7 @@ public class KNNConcurrentQueryProfileTree extends KNNQueryProfileTree {
      * @return a hierarchical representation of the profiled query tree
      */
     @Override
-    public List<KNNQueryProfileResult> getTree() {
+    public List<ProfileResult> getTree() {
         for (Integer root : roots) {
             final AbstractTimingProfileBreakdown<KNNQueryTimingType> parentBreakdown = breakdowns.get(root);
             assert parentBreakdown instanceof KNNConcurrentQueryProfileBreakdown;
@@ -61,19 +42,4 @@ public class KNNConcurrentQueryProfileTree extends KNNQueryProfileTree {
         return super.getTree();
     }
 
-    /**
-     * Updates the children with collector to leaves mapping as recorded by parent breakdown
-     * @param parentToken parent token number in the tree
-     * @param collectorToLeaves collector to leaves mapping recorded by parent
-     */
-    private void updateCollectorToLeavesForChildBreakdowns(Integer parentToken, Map<Collector, List<LeafReaderContext>> collectorToLeaves) {
-        final List<Integer> children = tree.get(parentToken);
-        if (children != null) {
-            for (Integer currentChild : children) {
-                final KNNQueryProfileBreakdown currentChildBreakdown = (KNNQueryProfileBreakdown) breakdowns.get(currentChild);
-                currentChildBreakdown.associateCollectorsToLeaves(collectorToLeaves);
-                updateCollectorToLeavesForChildBreakdowns(currentChild, collectorToLeaves);
-            }
-        }
-    }
 }

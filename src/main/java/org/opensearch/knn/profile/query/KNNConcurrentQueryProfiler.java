@@ -7,6 +7,7 @@ package org.opensearch.knn.profile.query;
 
 import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.search.profile.AbstractTimingProfileBreakdown;
+import org.opensearch.search.profile.ProfileResult;
 
 import java.util.*;
 
@@ -51,8 +52,8 @@ public final class KNNConcurrentQueryProfiler extends KNNQueryProfiler {
      * @return a hierarchical representation of the profiled tree
      */
     @Override
-    public List<KNNQueryProfileResult> getTree() {
-        List<KNNQueryProfileResult> profileResults = new ArrayList<>();
+    public List<ProfileResult> getTree() {
+        List<ProfileResult> profileResults = new ArrayList<>();
         for (Map.Entry<Long, KNNConcurrentQueryProfileTree> profile : threadToProfileTree.entrySet()) {
             profileResults.addAll(profile.getValue().getTree());
         }

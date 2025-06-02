@@ -13,22 +13,10 @@ import java.util.List;
 
 public class KNNQueryProfileTree extends AbstractInternalProfileTree<
     AbstractTimingProfileBreakdown<KNNQueryTimingType>,
-    KNNQueryTimingType,
-    KNNQuery,
-    KNNQueryProfileResult> {
+    KNNQuery> {
     @Override
     protected AbstractTimingProfileBreakdown<KNNQueryTimingType> createProfileBreakdown() {
         return new KNNQueryProfileBreakdown();
-    }
-
-    @Override
-    protected KNNQueryProfileResult createProfileResult(
-        String type,
-        String description,
-        AbstractTimingProfileBreakdown<KNNQueryTimingType> breakdown,
-        List<KNNQueryProfileResult> childrenProfileResults
-    ) {
-        return new KNNQueryProfileResult(type, description, breakdown.toBreakdownMap(), breakdown.toDebugMap(), childrenProfileResults);
     }
 
     @Override

@@ -28,6 +28,9 @@ public class KNNQueryProfileBreakdown extends AbstractTimingProfileBreakdown<KNN
     @Override
     public Map<String, Long> toBreakdownMap() {
         Map<String, Long> breakdownMap = super.toBreakdownMap();
+        for (KNNQueryTimingType type : KNNQueryTimingType.values()) {
+            breakdownMap.remove(type + TIMING_TYPE_START_TIME_SUFFIX); // don't want start time in output
+        }
         breakdownMap.put(CARDINALITY, (long) filter_cardinality);
         return breakdownMap;
     }

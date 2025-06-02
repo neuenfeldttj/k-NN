@@ -353,7 +353,6 @@ public class KNNRestTestCase extends ODFERestTestCase {
         return searchKNNIndex(index, xContentBuilder.toString(), resultSize);
     }
 
-
     /**
      * Run KNN Search on Index with json string query
      */
@@ -498,6 +497,22 @@ public class KNNRestTestCase extends ODFERestTestCase {
             }
         }).collect(Collectors.toList());
         return fieldFound.stream().mapToInt(Integer::intValue).sum();
+    }
+
+    protected long parseKNNProfilerOneShardOneResult(String responseBody, String breakdownFieldName) throws IOException {
+        @SuppressWarnings("unchecked")
+        List<Object> shards = (List<Object>) ((Map<String, Object>) createParser(
+            MediaTypeRegistry.getDefaultMediaType().xContent(),
+            responseBody
+        ).map().get("profile")).get("shards");
+        Map<String, Object> first_shard = (Map<String, Object>) shards.getFirst();
+        List<Object> plugins = (List<Object>) first_shard.get("plugins");
+        Object knn_plugin_obj = plugins.getFirst();
+        List<Object> knn_plugins = (List<Object>) ((Map<String, Object>) knn_plugin_obj).get("knn-query");
+        Map<String, Object> knn_plugin = (Map<String, Object>) knn_plugins.getFirst();
+
+        Map<String, Object> breakdown = (Map<String, Object>) knn_plugin.get("breakdown");
+        return ((Number) breakdown.get(breakdownFieldName)).longValue();
     }
 
     /**
@@ -789,10 +804,21 @@ public class KNNRestTestCase extends ODFERestTestCase {
     /**
      * Add a single KNN Doc with a numeric field to an index
      */
-    protected <T> void addKnnDocWithNumericField(String index, String docId, String vectorFieldName, T vector, String numericFieldName, long val) throws IOException {
+    protected <T> void addKnnDocWithNumericField(
+        String index,
+        String docId,
+        String vectorFieldName,
+        T vector,
+        String numericFieldName,
+        long val
+    ) throws IOException {
         Request request = new Request("POST", "/" + index + "/_doc/" + docId + "?refresh=true");
 
-        XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field(vectorFieldName, vector).field(numericFieldName, val).endObject();
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(vectorFieldName, vector)
+            .field(numericFieldName, val)
+            .endObject();
         request.setJsonEntity(builder.toString());
         client().performRequest(request);
 

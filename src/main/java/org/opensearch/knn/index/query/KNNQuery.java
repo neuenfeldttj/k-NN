@@ -182,7 +182,7 @@ public class KNNQuery extends Query {
 
         ContextIndexSearcher context_searcher = (ContextIndexSearcher) searcher;
         KNNQueryProfiler profiler = (KNNQueryProfiler) context_searcher.getPluginProfiler(KNNQueryProfiler.class);
-        if(profiler == null) {
+        if (profiler == null) {
             profiler = (KNNConcurrentQueryProfiler) context_searcher.getPluginProfiler(KNNConcurrentQueryProfiler.class);
         }
         AbstractTimingProfileBreakdown<KNNQueryTimingType> profile = profiler.getQueryBreakdown(this);

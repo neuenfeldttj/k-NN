@@ -5,13 +5,7 @@
 
 package org.opensearch.knn.profile.query;
 
-import org.apache.lucene.index.LeafReaderContext;
-import org.apache.lucene.search.Collector;
-import org.opensearch.OpenSearchException;
 import org.opensearch.search.profile.AbstractTimingProfileBreakdown;
-import org.opensearch.search.profile.Timer;
-import org.opensearch.search.profile.query.QueryTimingProfileBreakdown;
-import org.opensearch.search.profile.query.QueryTimingType;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -23,7 +17,6 @@ public class KNNConcurrentQueryProfileBreakdown extends KNNQueryProfileBreakdown
 
     // keep track of all breakdown timings per segment. package-private for testing
     private final Map<Object, KNNQueryProfileBreakdown> contexts = new ConcurrentHashMap<>();
-
 
     @Override
     public KNNQueryProfileBreakdown context(Object context) {
@@ -55,11 +48,11 @@ public class KNNConcurrentQueryProfileBreakdown extends KNNQueryProfileBreakdown
         Map<String, Long> aggregatedBreakdown = new HashMap<>();
 
         // Aggregate timing information from all contexts
-        for (AbstractTimingProfileBreakdown<KNNQueryTimingType> breakdown : contexts.values()) {
+        for (KNNQueryProfileBreakdown breakdown : contexts.values()) {
             Map<String, Long> sliceBreakdown = breakdown.toBreakdownMap();
-            // Merge timing information, keeping track of max/min/total for stats
-            sliceBreakdown.forEach((key, value) ->
-                    aggregatedBreakdown.merge(key, value, Long::max));
+            // Sum up all CARDINALITY across all slices to find the total number of filtered docs
+            // Sum up all SEARCH_LEAF times and counts across all slices
+            sliceBreakdown.forEach((key, value) -> aggregatedBreakdown.merge(key, value, Long::sum));
         }
 
         return aggregatedBreakdown;
@@ -85,4 +78,3 @@ public class KNNConcurrentQueryProfileBreakdown extends KNNQueryProfileBreakdown
         return concurrentQueryBreakdownMap;
     }
 }
-

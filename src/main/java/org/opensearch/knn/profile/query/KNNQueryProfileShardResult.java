@@ -9,7 +9,6 @@ import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.search.profile.AbstractProfileShardResult;
-import org.opensearch.search.profile.TimingProfileResult;
 
 import java.io.IOException;
 import java.util.List;

@@ -46,7 +46,6 @@ import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.opensearch.knn.profile.query.KNNProfileContext;
 import org.opensearch.knn.profile.query.KNNQueryProfileBreakdown;
-import org.opensearch.knn.profile.query.KNNQueryProfiler;
 import org.opensearch.knn.profile.query.KNNQueryTimingType;
 import org.opensearch.search.profile.Timer;
 
@@ -59,7 +58,6 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
-import static java.lang.Thread.sleep;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
@@ -290,7 +288,7 @@ public class KNNWeight extends Weight {
                         return KNNScorer.emptyScorer();
                     }
                     final int maxDoc = Collections.max(docIdToScoreMap.keySet()) + 1;
-                    return new KNNScorer(KNNWeight.this, ResultUtil.resultMapToDocIds(docIdToScoreMap, maxDoc), docIdToScoreMap, boost);
+                    return new KNNScorer(ResultUtil.resultMapToDocIds(docIdToScoreMap, maxDoc), docIdToScoreMap, boost);
                 }
 
                 @Override
@@ -314,7 +312,7 @@ public class KNNWeight extends Weight {
                         return KNNScorer.emptyScorer();
                     }
                     final int maxDoc = Collections.max(docIdToScoreMap.keySet()) + 1;
-                    return new KNNScorer(KNNWeight.this, ResultUtil.resultMapToDocIds(docIdToScoreMap, maxDoc), docIdToScoreMap, boost);
+                    return new KNNScorer(ResultUtil.resultMapToDocIds(docIdToScoreMap, maxDoc), docIdToScoreMap, boost);
                 }
 
                 @Override
@@ -339,12 +337,23 @@ public class KNNWeight extends Weight {
         final String segmentName = reader.getSegmentName();
 
         StopWatch stopWatch = startStopWatch();
-        final BitSet filterBitSet = getFilteredDocsBitSet(context);
+        final BitSet filterBitSet;
+        if (profile != null) {
+            Timer filterTimer = profile.context(context).getTimer(KNNQueryTimingType.BITSET_CREATION);
+            filterTimer.start();
+            try {
+                filterBitSet = getFilteredDocsBitSet(context);
+            } finally {
+                filterTimer.stop();
+            }
+        } else {
+            filterBitSet = getFilteredDocsBitSet(context);
+        }
         stopStopWatchAndLog(stopWatch, "FilterBitSet creation", segmentName);
 
         final int maxDoc = context.reader().maxDoc();
         int cardinality = filterBitSet.cardinality();
-        if(profile != null) {
+        if (profile != null) {
             KNNQueryProfileBreakdown pb = (KNNQueryProfileBreakdown) profile.context(context);
             pb.setCardinality(cardinality);
         }
@@ -374,7 +383,18 @@ public class KNNWeight extends Weight {
         final BitSet annFilter = (filterWeight != null && cardinality == maxDoc) ? null : filterBitSet;
 
         StopWatch annStopWatch = startStopWatch();
-        final Map<Integer, Float> docIdsToScoreMap = doANNSearch(reader, context, annFilter, cardinality, k);
+        final Map<Integer, Float> docIdsToScoreMap;
+        if (profile != null) {
+            Timer annTimer = profile.context(context).getTimer(KNNQueryTimingType.ANN_SEARCH);
+            annTimer.start();
+            try {
+                docIdsToScoreMap = doANNSearch(reader, context, annFilter, cardinality, k);
+            } finally {
+                annTimer.stop();
+            }
+        } else {
+            docIdsToScoreMap = doANNSearch(reader, context, annFilter, cardinality, k);
+        }
         stopStopWatchAndLog(annStopWatch, "ANN search", segmentName);
         if (knnQuery.isExplain()) {
             knnExplanation.addLeafResult(context.id(), docIdsToScoreMap.size());
@@ -643,7 +663,18 @@ public class KNNWeight extends Weight {
         final ExactSearcher.ExactSearcherContext exactSearcherContext
     ) throws IOException {
         StopWatch stopWatch = startStopWatch();
-        Map<Integer, Float> exactSearchResults = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContext);
+        Map<Integer, Float> exactSearchResults;
+        if (profile != null) {
+            Timer exactTimer = profile.context(leafReaderContext).getTimer(KNNQueryTimingType.EXACT_SEARCH);
+            exactTimer.start();
+            try {
+                exactSearchResults = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContext);
+            } finally {
+                exactTimer.stop();
+            }
+        } else {
+            exactSearchResults = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContext);
+        }
         final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
         stopStopWatchAndLog(stopWatch, "Exact search", reader.getSegmentName());
         return exactSearchResults;

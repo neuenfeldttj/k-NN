@@ -8,10 +8,7 @@ package org.opensearch.knn.profile.query;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.search.Collector;
 import org.opensearch.search.profile.AbstractTimingProfileBreakdown;
-import org.opensearch.search.profile.TimingProfileResult;
 import org.opensearch.search.profile.query.ConcurrentQueryTimingProfileBreakdown;
-import org.opensearch.search.profile.query.QueryTimingProfileBreakdown;
-import org.opensearch.search.profile.query.QueryTimingType;
 
 import java.util.List;
 import java.util.Map;
@@ -23,16 +20,20 @@ public class KNNConcurrentQueryProfileTree extends KNNQueryProfileTree {
     }
 
     @Override
-    protected KNNQueryProfileResult createProfileResult(String type, String description, AbstractTimingProfileBreakdown<KNNQueryTimingType> breakdown, List<KNNQueryProfileResult> childrenProfileResults) {
+    protected KNNQueryProfileResult createProfileResult(
+        String type,
+        String description,
+        AbstractTimingProfileBreakdown<KNNQueryTimingType> breakdown,
+        List<KNNQueryProfileResult> childrenProfileResults
+    ) {
         assert breakdown instanceof KNNConcurrentQueryProfileBreakdown;
         final KNNConcurrentQueryProfileBreakdown concurrentBreakdown = (KNNConcurrentQueryProfileBreakdown) breakdown;
         return new KNNQueryProfileResult(
-                type,
-                description,
-                concurrentBreakdown.toBreakdownMap(),
-                concurrentBreakdown.toDebugMap(),
-                concurrentBreakdown.toNodeTime(),
-                childrenProfileResults
+            type,
+            description,
+            concurrentBreakdown.toBreakdownMap(),
+            concurrentBreakdown.toDebugMap(),
+            childrenProfileResults
         );
     }
 
@@ -50,10 +51,11 @@ public class KNNConcurrentQueryProfileTree extends KNNQueryProfileTree {
         for (Integer root : roots) {
             final AbstractTimingProfileBreakdown<KNNQueryTimingType> parentBreakdown = breakdowns.get(root);
             assert parentBreakdown instanceof KNNConcurrentQueryProfileBreakdown;
-//            final Map<Collector, List<LeafReaderContext>> parentCollectorToLeaves = ((KNNConcurrentQueryProfileBreakdown) parentBreakdown)
-//                    .getSliceCollectorsToLeaves();
-//            // update all the children with the parent collectorToLeaves association
-//            updateCollectorToLeavesForChildBreakdowns(root, parentCollectorToLeaves);
+            // final Map<Collector, List<LeafReaderContext>> parentCollectorToLeaves = ((KNNConcurrentQueryProfileBreakdown)
+            // parentBreakdown)
+            // .getSliceCollectorsToLeaves();
+            // // update all the children with the parent collectorToLeaves association
+            // updateCollectorToLeavesForChildBreakdowns(root, parentCollectorToLeaves);
         }
         // once the collector to leaves mapping is updated, get the result
         return super.getTree();

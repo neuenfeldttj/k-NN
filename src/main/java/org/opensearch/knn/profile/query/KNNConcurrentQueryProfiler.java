@@ -30,8 +30,8 @@ public final class KNNConcurrentQueryProfiler extends KNNQueryProfiler {
     @Override
     public AbstractTimingProfileBreakdown<KNNQueryTimingType> getQueryBreakdown(KNNQuery query) {
         KNNConcurrentQueryProfileTree profileTree = threadToProfileTree.computeIfAbsent(
-                getCurrentThreadId(),
-                k -> new KNNConcurrentQueryProfileTree()
+            getCurrentThreadId(),
+            k -> new KNNConcurrentQueryProfileTree()
         );
         return profileTree.getProfileBreakdown(query);
     }

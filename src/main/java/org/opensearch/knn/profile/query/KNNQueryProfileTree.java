@@ -28,14 +28,7 @@ public class KNNQueryProfileTree extends AbstractInternalProfileTree<
         AbstractTimingProfileBreakdown<KNNQueryTimingType> breakdown,
         List<KNNQueryProfileResult> childrenProfileResults
     ) {
-        return new KNNQueryProfileResult(
-            type,
-            description,
-            breakdown.toBreakdownMap(),
-            breakdown.toDebugMap(),
-            breakdown.toNodeTime(),
-            childrenProfileResults
-        );
+        return new KNNQueryProfileResult(type, description, breakdown.toBreakdownMap(), breakdown.toDebugMap(), childrenProfileResults);
     }
 
     @Override

@@ -7,22 +7,23 @@ package org.opensearch.knn.profile.query;
 
 import org.opensearch.search.profile.AbstractTimingProfileBreakdown;
 import org.opensearch.search.profile.Timer;
+import org.opensearch.search.profile.query.TimingProfileContext;
 
 import java.util.Map;
 
-public class KNNQueryProfileBreakdown extends AbstractTimingProfileBreakdown<KNNQueryTimingType> implements KNNProfileContext {
+public class KNNQueryProfileBreakdown extends AbstractTimingProfileBreakdown implements TimingProfileContext {
     protected static final String CARDINALITY = "cardinality";
 
     protected int filter_cardinality;
 
     public KNNQueryProfileBreakdown() {
         for (KNNQueryTimingType type : KNNQueryTimingType.values()) {
-            timers.put(type, new Timer());
+            timers.put(type.toString(), new Timer());
         }
     }
 
-    public void setCardinality(int cardinality) {
-        filter_cardinality = cardinality;
+    public void addCardinality(int cardinality) {
+        filter_cardinality += cardinality;
     }
 
     @Override
@@ -36,7 +37,7 @@ public class KNNQueryProfileBreakdown extends AbstractTimingProfileBreakdown<KNN
     }
 
     @Override
-    public AbstractTimingProfileBreakdown<KNNQueryTimingType> context(Object context) {
+    public AbstractTimingProfileBreakdown context(Object context) {
         return this;
     }
 }

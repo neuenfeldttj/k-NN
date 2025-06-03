@@ -6,6 +6,7 @@
 package org.opensearch.knn.plugin;
 
 import com.google.common.collect.ImmutableList;
+import org.apache.lucene.search.Query;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.cluster.NamedDiff;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
@@ -41,6 +42,7 @@ import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategyFactor
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
+import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.index.query.parser.KNNQueryBuilderParser;
@@ -84,10 +86,9 @@ import org.opensearch.knn.plugin.transport.UpdateModelGraveyardAction;
 import org.opensearch.knn.plugin.transport.UpdateModelGraveyardTransportAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataTransportAction;
-import org.opensearch.knn.profile.query.KNNConcurrentQueryProfileTree;
-import org.opensearch.knn.profile.query.KNNConcurrentQueryProfiler;
-import org.opensearch.knn.profile.query.KNNQueryProfileTree;
-import org.opensearch.knn.profile.query.KNNQueryProfiler;
+import org.opensearch.knn.profile.query.KNNConcurrentQueryProfileBreakdown;
+import org.opensearch.knn.profile.query.KNNQueryProfileBreakdown;
+import org.opensearch.knn.profile.query.KNNQueryTimingType;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCache;
 import org.opensearch.knn.training.TrainingJobClusterStateListener;
 import org.opensearch.knn.training.TrainingJobRunner;
@@ -111,6 +112,7 @@ import org.opensearch.script.ScriptEngine;
 import org.opensearch.script.ScriptService;
 import org.opensearch.search.deciders.ConcurrentSearchRequestDecider;
 import org.opensearch.search.profile.AbstractProfiler;
+import org.opensearch.search.profile.AbstractTimingProfileBreakdown;
 import org.opensearch.threadpool.ExecutorBuilder;
 import org.opensearch.threadpool.FixedExecutorBuilder;
 import org.opensearch.threadpool.ThreadPool;
@@ -192,13 +194,14 @@ public class KNNPlugin extends Plugin
     }
 
     @Override
-    public ProfilerProvider getProfilerProvider() {
-        return new ProfilerProvider() {
+    public ProfileBreakdownProvider getProfileBreakdownProvider() {
+        return new ProfileBreakdownProvider() {
             @Override
-            public AbstractProfiler<?, ?, ?> getProfiler(boolean isConcurrentSearchEnabled) {
-                return (isConcurrentSearchEnabled)
-                    ? new KNNConcurrentQueryProfiler(new KNNConcurrentQueryProfileTree())
-                    : new KNNQueryProfiler(new KNNQueryProfileTree());
+            public Map<Class<? extends Query>, Class<? extends AbstractTimingProfileBreakdown>> getProfileBreakdown(boolean isConcurrentSearchEnabled) {
+                if(isConcurrentSearchEnabled) {
+                    return Map.of(KNNQuery.class, KNNConcurrentQueryProfileBreakdown.class);
+                }
+                return Map.of(KNNQuery.class, KNNQueryProfileBreakdown.class);
             }
         };
     }

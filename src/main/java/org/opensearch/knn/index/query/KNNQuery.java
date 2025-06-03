@@ -23,12 +23,13 @@ import org.apache.lucene.search.join.BitSetProducer;
 import org.opensearch.common.StopWatch;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
-import org.opensearch.knn.profile.query.KNNConcurrentQueryProfiler;
-import org.opensearch.knn.profile.query.KNNProfileContext;
-import org.opensearch.knn.profile.query.KNNQueryProfiler;
+import org.opensearch.knn.profile.query.KNNQueryProfileBreakdown;
 import org.opensearch.knn.profile.query.KNNQueryTimingType;
 import org.opensearch.search.internal.ContextIndexSearcher;
 import org.opensearch.search.profile.AbstractTimingProfileBreakdown;
+import org.opensearch.search.profile.query.ConcurrentQueryProfiler;
+import org.opensearch.search.profile.query.QueryProfiler;
+import org.opensearch.search.profile.query.TimingProfileContext;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -181,12 +182,13 @@ public class KNNQuery extends Query {
     public Weight createWeight(IndexSearcher searcher, ScoreMode scoreMode, float boost) throws IOException {
 
         ContextIndexSearcher context_searcher = (ContextIndexSearcher) searcher;
-        KNNQueryProfiler profiler = (KNNQueryProfiler) context_searcher.getPluginProfiler(KNNQueryProfiler.class);
-        if (profiler == null) {
-            profiler = (KNNConcurrentQueryProfiler) context_searcher.getPluginProfiler(KNNConcurrentQueryProfiler.class);
+        QueryProfiler profiler = context_searcher.getQueryProfiler();
+        AbstractTimingProfileBreakdown profile;
+        try {
+            profile = profiler.getPluginBreakdown();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
-        AbstractTimingProfileBreakdown<KNNQueryTimingType> profile = profiler.getQueryBreakdown(this);
-        profiler.pollLastElement();
 
         StopWatch stopWatch = null;
         if (log.isDebugEnabled()) {
@@ -205,9 +207,9 @@ public class KNNQuery extends Query {
         }
 
         if (filterWeight != null) {
-            return new KNNWeight(this, boost, filterWeight, (KNNProfileContext) profile);
+            return new KNNWeight(this, boost, filterWeight, (TimingProfileContext) profile);
         }
-        return new KNNWeight(this, boost, (KNNProfileContext) profile);
+        return new KNNWeight(this, boost, (TimingProfileContext) profile);
     }
 
     private Weight getFilterWeight(IndexSearcher searcher) throws IOException {

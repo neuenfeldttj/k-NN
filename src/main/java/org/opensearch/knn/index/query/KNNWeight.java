@@ -11,12 +11,7 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SegmentReader;
-import org.apache.lucene.search.DocIdSetIterator;
-import org.apache.lucene.search.Explanation;
-import org.apache.lucene.search.FilteredDocIdSetIterator;
-import org.apache.lucene.search.Scorer;
-import org.apache.lucene.search.ScorerSupplier;
-import org.apache.lucene.search.Weight;
+import org.apache.lucene.search.*;
 import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.Bits;
@@ -44,10 +39,11 @@ import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.plugin.stats.KNNCounter;
-import org.opensearch.knn.profile.query.KNNProfileContext;
 import org.opensearch.knn.profile.query.KNNQueryProfileBreakdown;
 import org.opensearch.knn.profile.query.KNNQueryTimingType;
 import org.opensearch.search.profile.Timer;
+import org.opensearch.search.profile.query.QueryTimingProfileBreakdown;
+import org.opensearch.search.profile.query.TimingProfileContext;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -84,9 +80,9 @@ public class KNNWeight extends Weight {
     private final QuantizationService quantizationService;
     private final KnnExplanation knnExplanation;
 
-    private final KNNProfileContext profile;
+    private final TimingProfileContext profile;
 
-    public KNNWeight(KNNQuery query, float boost, KNNProfileContext profile) {
+    public KNNWeight(KNNQuery query, float boost, TimingProfileContext profile) {
         super(query);
         this.knnQuery = query;
         this.boost = boost;
@@ -98,7 +94,7 @@ public class KNNWeight extends Weight {
         this.profile = profile;
     }
 
-    public KNNWeight(KNNQuery query, float boost, Weight filterWeight, KNNProfileContext profile) {
+    public KNNWeight(KNNQuery query, float boost, Weight filterWeight, TimingProfileContext profile) {
         super(query);
         this.knnQuery = query;
         this.boost = boost;
@@ -269,7 +265,7 @@ public class KNNWeight extends Weight {
     @Override
     public ScorerSupplier scorerSupplier(LeafReaderContext context) throws IOException {
         if (profile != null) {
-            Timer timer = profile.context(context).getTimer(KNNQueryTimingType.SEARCH_LEAF);
+            Timer timer = profile.context(context).getTimer(KNNQueryTimingType.SEARCH_LEAF.toString());
 
             return new ScorerSupplier() {
                 long cost = -1L;
@@ -339,7 +335,7 @@ public class KNNWeight extends Weight {
         StopWatch stopWatch = startStopWatch();
         final BitSet filterBitSet;
         if (profile != null) {
-            Timer filterTimer = profile.context(context).getTimer(KNNQueryTimingType.BITSET_CREATION);
+            Timer filterTimer = profile.context(context).getTimer(KNNQueryTimingType.BITSET_CREATION.toString());
             filterTimer.start();
             try {
                 filterBitSet = getFilteredDocsBitSet(context);
@@ -354,8 +350,8 @@ public class KNNWeight extends Weight {
         final int maxDoc = context.reader().maxDoc();
         int cardinality = filterBitSet.cardinality();
         if (profile != null) {
-            KNNQueryProfileBreakdown pb = (KNNQueryProfileBreakdown) profile.context(context);
-            pb.setCardinality(cardinality);
+            KNNQueryProfileBreakdown pb = (KNNQueryProfileBreakdown) ((QueryTimingProfileBreakdown) profile.context(context)).getPluginBreakdown();
+            pb.addCardinality(cardinality);
         }
         // We don't need to go to JNI layer if no documents are found which satisfy the filters
         // We should give this condition a deeper look that where it should be placed. For now I feel this is a good
@@ -385,7 +381,7 @@ public class KNNWeight extends Weight {
         StopWatch annStopWatch = startStopWatch();
         final Map<Integer, Float> docIdsToScoreMap;
         if (profile != null) {
-            Timer annTimer = profile.context(context).getTimer(KNNQueryTimingType.ANN_SEARCH);
+            Timer annTimer = profile.context(context).getTimer(KNNQueryTimingType.ANN_SEARCH.toString());
             annTimer.start();
             try {
                 docIdsToScoreMap = doANNSearch(reader, context, annFilter, cardinality, k);
@@ -665,7 +661,7 @@ public class KNNWeight extends Weight {
         StopWatch stopWatch = startStopWatch();
         Map<Integer, Float> exactSearchResults;
         if (profile != null) {
-            Timer exactTimer = profile.context(leafReaderContext).getTimer(KNNQueryTimingType.EXACT_SEARCH);
+            Timer exactTimer = profile.context(leafReaderContext).getTimer(KNNQueryTimingType.EXACT_SEARCH.toString());
             exactTimer.start();
             try {
                 exactSearchResults = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContext);

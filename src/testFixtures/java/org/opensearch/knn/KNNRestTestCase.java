@@ -1120,6 +1120,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         Settings.Builder builder = Settings.builder()
             .put("number_of_shards", shards)
             .put("number_of_replicas", reps)
+//                .put("index.search.concurrent_segment_search.mode", "none")
             .put(KNN_INDEX, true)
             .put(INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, approximateThreshold);
 

@@ -198,9 +198,9 @@ public class KNNPlugin extends Plugin
         return new ProfileBreakdownProvider() {
             @Override
             public Map<Class<? extends Query>, Class<? extends AbstractTimingProfileBreakdown>> getProfileBreakdown(boolean isConcurrentSearchEnabled) {
-                if(isConcurrentSearchEnabled) {
-                    return Map.of(KNNQuery.class, KNNConcurrentQueryProfileBreakdown.class);
-                }
+//                if(isConcurrentSearchEnabled) {
+//                    return Map.of(KNNQuery.class, KNNConcurrentQueryProfileBreakdown.class);
+//                }
                 return Map.of(KNNQuery.class, KNNQueryProfileBreakdown.class);
             }
         };

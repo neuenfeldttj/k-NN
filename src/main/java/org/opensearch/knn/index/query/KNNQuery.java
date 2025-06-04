@@ -29,6 +29,7 @@ import org.opensearch.search.internal.ContextIndexSearcher;
 import org.opensearch.search.profile.AbstractTimingProfileBreakdown;
 import org.opensearch.search.profile.query.ConcurrentQueryProfiler;
 import org.opensearch.search.profile.query.QueryProfiler;
+import org.opensearch.search.profile.query.QueryTimingProfileBreakdown;
 import org.opensearch.search.profile.query.TimingProfileContext;
 
 import java.io.IOException;
@@ -185,7 +186,7 @@ public class KNNQuery extends Query {
         QueryProfiler profiler = context_searcher.getQueryProfiler();
         AbstractTimingProfileBreakdown profile;
         try {
-            profile = profiler.getPluginBreakdown();
+            profile = profiler.getTopBreakdown();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

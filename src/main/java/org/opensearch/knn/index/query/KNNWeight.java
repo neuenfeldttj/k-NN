@@ -265,7 +265,7 @@ public class KNNWeight extends Weight {
     @Override
     public ScorerSupplier scorerSupplier(LeafReaderContext context) throws IOException {
         if (profile != null) {
-            Timer timer = profile.context(context).getTimer(KNNQueryTimingType.SEARCH_LEAF.toString());
+            Timer timer = profile.getPluginBreakdown(context).getTimer(KNNQueryTimingType.SEARCH_LEAF.toString());
 
             return new ScorerSupplier() {
                 long cost = -1L;
@@ -273,11 +273,13 @@ public class KNNWeight extends Weight {
                 @Override
                 public Scorer get(long leadCost) throws IOException {
                     final Map<Integer, Float> docIdToScoreMap;
+                    System.out.println("Starting " + timer);
                     timer.start();
                     try {
                         docIdToScoreMap = searchLeaf(context, knnQuery.getK()).getResult();
                     } finally {
                         timer.stop();
+                        System.out.println("Stopped " + timer);
                     }
                     cost = docIdToScoreMap.size();
                     if (docIdToScoreMap.isEmpty()) {
@@ -335,7 +337,7 @@ public class KNNWeight extends Weight {
         StopWatch stopWatch = startStopWatch();
         final BitSet filterBitSet;
         if (profile != null) {
-            Timer filterTimer = profile.context(context).getTimer(KNNQueryTimingType.BITSET_CREATION.toString());
+            Timer filterTimer = profile.getPluginBreakdown(context).getTimer(KNNQueryTimingType.BITSET_CREATION.toString());
             filterTimer.start();
             try {
                 filterBitSet = getFilteredDocsBitSet(context);
@@ -350,7 +352,7 @@ public class KNNWeight extends Weight {
         final int maxDoc = context.reader().maxDoc();
         int cardinality = filterBitSet.cardinality();
         if (profile != null) {
-            KNNQueryProfileBreakdown pb = (KNNQueryProfileBreakdown) ((QueryTimingProfileBreakdown) profile.context(context)).getPluginBreakdown();
+            KNNQueryProfileBreakdown pb = (KNNQueryProfileBreakdown) profile.getPluginBreakdown(context);
             pb.addCardinality(cardinality);
         }
         // We don't need to go to JNI layer if no documents are found which satisfy the filters
@@ -381,7 +383,7 @@ public class KNNWeight extends Weight {
         StopWatch annStopWatch = startStopWatch();
         final Map<Integer, Float> docIdsToScoreMap;
         if (profile != null) {
-            Timer annTimer = profile.context(context).getTimer(KNNQueryTimingType.ANN_SEARCH.toString());
+            Timer annTimer = profile.getPluginBreakdown(context).getTimer(KNNQueryTimingType.ANN_SEARCH.toString());
             annTimer.start();
             try {
                 docIdsToScoreMap = doANNSearch(reader, context, annFilter, cardinality, k);
@@ -661,7 +663,7 @@ public class KNNWeight extends Weight {
         StopWatch stopWatch = startStopWatch();
         Map<Integer, Float> exactSearchResults;
         if (profile != null) {
-            Timer exactTimer = profile.context(leafReaderContext).getTimer(KNNQueryTimingType.EXACT_SEARCH.toString());
+            Timer exactTimer = profile.getPluginBreakdown(leafReaderContext).getTimer(KNNQueryTimingType.EXACT_SEARCH.toString());
             exactTimer.start();
             try {
                 exactSearchResults = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContext);

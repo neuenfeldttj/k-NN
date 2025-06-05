@@ -24,6 +24,11 @@ public class KNNQueryProfileBreakdown extends AbstractTimingProfileBreakdown imp
         }
     }
 
+    @Override
+    public Map<String, Long> toImportantMetricsMap() {
+        return Map.of(CARDINALITY, (long) filter_cardinality);
+    }
+
     public void addCardinality(int cardinality) {
         filter_cardinality += cardinality;
     }

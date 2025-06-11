@@ -72,6 +72,8 @@ public class NestedKnnVectorQueryFactory {
                 new InternalNestedKnnFloatVectoryQuery(fieldName, vector, filterQuery, k, parentFilter)
             ).queryUtils(QueryUtils.INSTANCE).build();
         }
+
+        // TODO: wrap
         return new DiversifyingChildrenFloatKnnVectorQuery(fieldName, vector, filterQuery, k, parentFilter);
     }
 }

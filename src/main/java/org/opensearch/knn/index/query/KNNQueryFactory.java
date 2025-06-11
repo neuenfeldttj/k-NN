@@ -175,7 +175,10 @@ public class KNNQueryFactory extends BaseQueryFactory {
     ) {
         if (parentFilter == null) {
             assert expandNested == false : "expandNested is allowed to be true only for nested fields.";
+
+            // TODO: wrap
             return new KnnByteVectorQuery(fieldName, byteVector, k, filterQuery);
+
         } else {
             return NestedKnnVectorQueryFactory.createNestedKnnVectorQuery(
                 fieldName,
@@ -202,7 +205,11 @@ public class KNNQueryFactory extends BaseQueryFactory {
     ) {
         if (parentFilter == null) {
             assert expandNested == false : "expandNested is allowed to be true only for nested fields.";
+
+            // TODO: wrap
             return new KnnFloatVectorQuery(fieldName, floatVector, k, filterQuery);
+
+
         } else {
             return NestedKnnVectorQueryFactory.createNestedKnnVectorQuery(
                 fieldName,

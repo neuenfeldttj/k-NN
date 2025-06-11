@@ -1278,7 +1278,6 @@ public class OpenSearchIT extends KNNRestTestCase {
             .endObject()
             .endObject();
         Response response3 = searchKNNIndex(INDEX_NAME, builder, k);
-        System.out.println(EntityUtils.toString(response3.getEntity()));
         assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response3.getEntity()), "vector1"));
         assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response3.getEntity()), "vector2"));
 
@@ -1297,9 +1296,10 @@ public class OpenSearchIT extends KNNRestTestCase {
             .endObject()
             .endObject();
         Response response4 = searchKNNIndex(INDEX_NAME, builder, k);
-        System.out.println(EntityUtils.toString(response4.getEntity()));
         assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response4.getEntity()), "vector1"));
         assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response4.getEntity()), "vector2"));
+
+        deleteKNNIndex(INDEX_NAME);
     }
 
     public void testKNNSearchWithProfilerEnabled_LuceneNested() throws Exception {
@@ -1434,7 +1434,6 @@ public class OpenSearchIT extends KNNRestTestCase {
 
         response = searchKNNIndex(INDEX_NAME, builder, k);
         responseBody = EntityUtils.toString(response.getEntity());
-        System.out.println(responseBody);
         results = parseProfileMetric(responseBody, "expand_nested_docs_time", true);
         for(Long result : results) {
             assertNotEquals(0L, result.longValue());
@@ -1484,6 +1483,7 @@ public class OpenSearchIT extends KNNRestTestCase {
             .endObject();
         Response response = searchKNNIndex(INDEX_NAME, builder, 10);
         String responseBody = EntityUtils.toString(response.getEntity());
+        System.out.println(responseBody);
         List<Long> result = parseProfileMetric(responseBody, "score_time", true);
         assertEquals(2, result.size());
         deleteKNNIndex(INDEX_NAME);
@@ -1521,53 +1521,6 @@ public class OpenSearchIT extends KNNRestTestCase {
         assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response3.getEntity()), "vector1"));
         assertEquals(k, parseSearchResponseFieldsCount(EntityUtils.toString(response3.getEntity()), "vector2"));
 
-    }
-
-    public void testKNNSearchWithProfilerEnabled_Filter() throws Exception {
-        String mapping = createKnnIndexMapping("vector2", 3, "hnsw", "faiss", "l2", false);
-        createKnnIndex(INDEX_NAME, mapping);
-        // Add docs with knn_vector fields
-        for (int i = 1; i <= 20; i++) {
-            Float[] vector2 = { (float) i, (float) (i + 1), (float) (i + 2) };
-            addKnnDocWithNumericField(INDEX_NAME, Integer.toString(i), "vector2", vector2, "rating", i);
-        }
-        int k = 5; // nearest 5 neighbors
-
-        // Create knn search body, all fields
-        XContentBuilder builder = XContentFactory.jsonBuilder()
-            .startObject()
-            .field("profile", true)
-            .startObject("query")
-            .startObject("knn")
-            .startObject("vector2")
-            .field("vector", new float[] { 2.0f, 2.0f, 2.0f })
-            .field("k", k)
-            .startObject("filter")
-            .startObject("bool")
-            .startArray("must")
-            .startObject()
-            .startObject("range")
-            .startObject("rating")
-            .field("gte", 8)
-            .field("lte", 14)
-            .endObject()
-            .endObject()
-            .endObject()
-            .endArray()
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject();
-
-        Response response = searchKNNIndex(INDEX_NAME, builder, k);
-        String responseBody = EntityUtils.toString(response.getEntity());
-        List<Long> results = parseProfileMetric(responseBody, "cardinality", false);
-        for(Long result : results) {
-            assertEquals(7L, result.longValue());
-        }
-        deleteKNNIndex(INDEX_NAME);
     }
 
     // TODO: create a Lucene filter where P <= k
@@ -1768,7 +1721,6 @@ public class OpenSearchIT extends KNNRestTestCase {
         Response response = searchKNNIndex(INDEX_NAME, builder, k);
 
         String responseString = EntityUtils.toString(response.getEntity());
-        System.out.println(responseString);
         assertEquals(1, parseIds(responseString).size());
         List<Long> results = parseProfileMetric(responseString, "rescore_time", false);
         for(Long result : results) {

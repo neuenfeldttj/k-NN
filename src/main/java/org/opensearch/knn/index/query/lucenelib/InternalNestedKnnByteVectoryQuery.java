@@ -14,6 +14,10 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.apache.lucene.search.join.DiversifyingChildrenByteKnnVectorQuery;
+import org.opensearch.knn.profile.query.LuceneEngineKnnTimingType;
+import org.opensearch.search.internal.ContextIndexSearcher;
+import org.opensearch.search.profile.Timer;
+import org.opensearch.search.profile.query.QueryProfiler;
 
 import java.io.IOException;
 
@@ -28,6 +32,7 @@ public class InternalNestedKnnByteVectoryQuery extends KnnByteVectorQuery implem
     private final int k;
     private final BitSetProducer parentFilter;
     private final DiversifyingChildrenByteKnnVectorQuery diversifyingChildrenByteKnnVectorQuery;
+    private QueryProfiler profiler;
 
     public InternalNestedKnnByteVectoryQuery(
         final String field,
@@ -47,11 +52,22 @@ public class InternalNestedKnnByteVectoryQuery extends KnnByteVectorQuery implem
 
     @Override
     public Query knnRewrite(final IndexSearcher searcher) throws IOException {
+        profiler = ((ContextIndexSearcher) searcher).getQueryProfiler();
         return diversifyingChildrenByteKnnVectorQuery.rewrite(searcher);
     }
 
     @Override
     public TopDocs knnExactSearch(LeafReaderContext context, DocIdSetIterator acceptIterator) throws IOException {
+        if (profiler != null) {
+            Timer timer = profiler.getTopBreakdown().getPluginBreakdown(context).getTimer(LuceneEngineKnnTimingType.INTERNAL_EXACT.toString());
+            timer.start();
+            try {
+                return super.exactSearch(context, acceptIterator, null);
+            }
+            finally {
+                timer.stop();
+            }
+        }
         return super.exactSearch(context, acceptIterator, null);
     }
 }

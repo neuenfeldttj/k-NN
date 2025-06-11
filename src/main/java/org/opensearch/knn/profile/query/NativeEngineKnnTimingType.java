@@ -7,12 +7,9 @@ package org.opensearch.knn.profile.query;
 
 import java.util.Locale;
 
-public enum KNNQueryTimingType {
-    ANN_SEARCH,
-    EXACT_SEARCH,
-    BITSET_CREATION,
-    EXACT_SEARCH_AFTER_ANN,
-    EXACT_SEARCH_AFTER_FILTER;
+public enum NativeEngineKnnTimingType {
+    EXPAND_NESTED_DOCS,
+    RESCORE;
 
     @Override
     public String toString() {

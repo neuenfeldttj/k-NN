@@ -123,6 +123,7 @@ import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD;
 import static org.opensearch.knn.index.SpaceType.L2;
 import static org.opensearch.knn.index.engine.KNNEngine.FAISS;
+import static org.opensearch.knn.index.engine.KNNEngine.LUCENE;
 import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.GRAPH_COUNT;
 import static org.opensearch.knn.plugin.stats.StatNames.INDICES_IN_CACHE;
 import org.opensearch.common.xcontent.support.XContentMapValues;
@@ -702,14 +703,20 @@ public class KNNRestTestCase extends ODFERestTestCase {
      * @param fieldPath  path of the nested field, e.g. "my_nested_field.my_vector"
      * @return mapping string for the nested field
      */
-    protected String createKnnIndexNestedMapping(Integer dimensions, String fieldPath) throws IOException {
+    protected String createKnnIndexNestedMapping(Integer dimensions, String fieldPath, String engine) throws IOException {
         String[] fieldPathArray = fieldPath.split("\\.");
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().startObject().startObject("properties");
 
         for (int i = 0; i < fieldPathArray.length; i++) {
             xContentBuilder.startObject(fieldPathArray[i]);
             if (i == fieldPathArray.length - 1) {
-                xContentBuilder.field("type", "knn_vector").field("dimension", dimensions.toString());
+                xContentBuilder
+                        .field("type", "knn_vector")
+                        .field("dimension", dimensions.toString())
+                        .startObject(KNN_METHOD)
+                        .field(NAME, METHOD_HNSW)
+                        .field(KNN_ENGINE, engine)
+                        .endObject();
             } else {
                 xContentBuilder.field("type", "nested").startObject("properties");
             }
@@ -1120,7 +1127,6 @@ public class KNNRestTestCase extends ODFERestTestCase {
         Settings.Builder builder = Settings.builder()
             .put("number_of_shards", shards)
             .put("number_of_replicas", reps)
-//                .put("index.search.concurrent_segment_search.mode", "none")
             .put(KNN_INDEX, true)
             .put(INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, approximateThreshold);
 
@@ -1318,6 +1324,23 @@ public class KNNRestTestCase extends ODFERestTestCase {
         ).map().get("hits")).get("hits");
 
         return hits.stream().map(hit -> (Double) ((Map<String, Object>) hit).get("_score")).collect(Collectors.toList());
+    }
+
+    protected List<Long> parseProfileMetric(String searchResponseBody, String metric, boolean children) {
+        List<Object> values;
+        if (children) {
+            values = JsonPath.read(
+                    searchResponseBody,
+                    String.format(Locale.ROOT, "$.profile.shards[*].searches[*].query[*].children[*].breakdown.%s", metric)
+            );
+        } else {
+            values = JsonPath.read(
+                    searchResponseBody,
+                    String.format(Locale.ROOT, "$.profile.shards[*].searches[*].query[*].breakdown.%s", metric)
+            );
+        }
+        if(values == null) throw new RuntimeException("Could not find metric in profile breakdown");
+        return values.stream().map(value -> ((Number) value).longValue()).collect(Collectors.toList());
     }
 
     /**

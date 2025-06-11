@@ -41,9 +41,11 @@ import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.opensearch.knn.profile.query.KNNQueryProfileBreakdown;
 import org.opensearch.knn.profile.query.KNNQueryTimingType;
+import org.opensearch.knn.profile.query.NativeEngineKnnProfileBreakdown;
+import org.opensearch.knn.profile.query.NativeEngineKnnTimingType;
+import org.opensearch.search.profile.AbstractTimingProfileBreakdown;
 import org.opensearch.search.profile.Timer;
-import org.opensearch.search.profile.query.QueryTimingProfileBreakdown;
-import org.opensearch.search.profile.query.TimingProfileContext;
+import org.opensearch.search.profile.query.AbstractQueryTimingProfileBreakdown;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -80,9 +82,9 @@ public class KNNWeight extends Weight {
     private final QuantizationService quantizationService;
     private final KnnExplanation knnExplanation;
 
-    private final TimingProfileContext profile;
+    private final AbstractQueryTimingProfileBreakdown profile;
 
-    public KNNWeight(KNNQuery query, float boost, TimingProfileContext profile) {
+    public KNNWeight(KNNQuery query, float boost, AbstractQueryTimingProfileBreakdown profile) {
         super(query);
         this.knnQuery = query;
         this.boost = boost;
@@ -94,7 +96,7 @@ public class KNNWeight extends Weight {
         this.profile = profile;
     }
 
-    public KNNWeight(KNNQuery query, float boost, Weight filterWeight, TimingProfileContext profile) {
+    public KNNWeight(KNNQuery query, float boost, Weight filterWeight, AbstractQueryTimingProfileBreakdown profile) {
         super(query);
         this.knnQuery = query;
         this.boost = boost;
@@ -264,62 +266,28 @@ public class KNNWeight extends Weight {
 
     @Override
     public ScorerSupplier scorerSupplier(LeafReaderContext context) throws IOException {
-        if (profile != null) {
-            Timer timer = profile.getPluginBreakdown(context).getTimer(KNNQueryTimingType.SEARCH_LEAF.toString());
+        return new ScorerSupplier() {
+            long cost = -1L;
 
-            return new ScorerSupplier() {
-                long cost = -1L;
+            @Override
+            public Scorer get(long leadCost) throws IOException {
+                final Map<Integer, Float> docIdToScoreMap;
+                docIdToScoreMap = searchLeaf(context, knnQuery.getK()).getResult();
 
-                @Override
-                public Scorer get(long leadCost) throws IOException {
-                    final Map<Integer, Float> docIdToScoreMap;
-                    System.out.println("Starting " + timer);
-                    timer.start();
-                    try {
-                        docIdToScoreMap = searchLeaf(context, knnQuery.getK()).getResult();
-                    } finally {
-                        timer.stop();
-                        System.out.println("Stopped " + timer);
-                    }
-                    cost = docIdToScoreMap.size();
-                    if (docIdToScoreMap.isEmpty()) {
-                        return KNNScorer.emptyScorer();
-                    }
-                    final int maxDoc = Collections.max(docIdToScoreMap.keySet()) + 1;
-                    return new KNNScorer(ResultUtil.resultMapToDocIds(docIdToScoreMap, maxDoc), docIdToScoreMap, boost);
+                cost = docIdToScoreMap.size();
+                if (docIdToScoreMap.isEmpty()) {
+                    return KNNScorer.emptyScorer();
                 }
+                final int maxDoc = Collections.max(docIdToScoreMap.keySet()) + 1;
+                return new KNNScorer(ResultUtil.resultMapToDocIds(docIdToScoreMap, maxDoc), docIdToScoreMap, boost);
+            }
 
-                @Override
-                public long cost() {
-                    // Estimate the cost of the scoring operation, if applicable.
-                    return cost == -1L ? knnQuery.getK() : cost;
-                }
-            };
-
-        } else {
-            return new ScorerSupplier() {
-                long cost = -1L;
-
-                @Override
-                public Scorer get(long leadCost) throws IOException {
-                    final Map<Integer, Float> docIdToScoreMap;
-                    docIdToScoreMap = searchLeaf(context, knnQuery.getK()).getResult();
-
-                    cost = docIdToScoreMap.size();
-                    if (docIdToScoreMap.isEmpty()) {
-                        return KNNScorer.emptyScorer();
-                    }
-                    final int maxDoc = Collections.max(docIdToScoreMap.keySet()) + 1;
-                    return new KNNScorer(ResultUtil.resultMapToDocIds(docIdToScoreMap, maxDoc), docIdToScoreMap, boost);
-                }
-
-                @Override
-                public long cost() {
-                    // Estimate the cost of the scoring operation, if applicable.
-                    return cost == -1L ? knnQuery.getK() : cost;
-                }
-            };
-        }
+            @Override
+            public long cost() {
+                // Estimate the cost of the scoring operation, if applicable.
+                return cost == -1L ? knnQuery.getK() : cost;
+            }
+        };
     }
 
     /**
@@ -352,8 +320,14 @@ public class KNNWeight extends Weight {
         final int maxDoc = context.reader().maxDoc();
         int cardinality = filterBitSet.cardinality();
         if (profile != null) {
-            KNNQueryProfileBreakdown pb = (KNNQueryProfileBreakdown) profile.getPluginBreakdown(context);
-            pb.addCardinality(cardinality);
+            AbstractTimingProfileBreakdown pb = profile.getPluginBreakdown(context);
+            if(pb instanceof KNNQueryProfileBreakdown) {
+                ((KNNQueryProfileBreakdown) pb).addCardinality(cardinality);
+            } else if(pb instanceof NativeEngineKnnProfileBreakdown) {
+                ((NativeEngineKnnProfileBreakdown) pb).addCardinality(cardinality);
+            } else {
+                throw new IllegalStateException("Unexpected profile breakdown type: " + pb.getClass().getName());
+            }
         }
         // We don't need to go to JNI layer if no documents are found which satisfy the filters
         // We should give this condition a deeper look that where it should be placed. For now I feel this is a good
@@ -370,7 +344,19 @@ public class KNNWeight extends Weight {
          * This improves the recall.
          */
         if (isFilteredExactSearchPreferred(cardinality)) {
-            Map<Integer, Float> result = doExactSearch(context, new BitSetIterator(filterBitSet, cardinality), cardinality, k);
+            Map<Integer, Float> result;
+            if(profile != null) {
+                Timer timer = profile.getPluginBreakdown(context).getTimer(KNNQueryTimingType.EXACT_SEARCH_AFTER_FILTER.toString());
+                timer.start();
+                try {
+                    result = doExactSearch(context, new BitSetIterator(filterBitSet, cardinality), cardinality, k);
+                } finally {
+                    timer.stop();
+                }
+            }
+            else {
+                result = doExactSearch(context, new BitSetIterator(filterBitSet, cardinality), cardinality, k);
+            }
             return new PerLeafResult(filterWeight == null ? null : filterBitSet, result);
         }
 
@@ -402,7 +388,19 @@ public class KNNWeight extends Weight {
         // results less than K, though we have more than k filtered docs
         if (isExactSearchRequire(context, cardinality, docIdsToScoreMap.size())) {
             final BitSetIterator docs = filterWeight != null ? new BitSetIterator(filterBitSet, cardinality) : null;
-            Map<Integer, Float> result = doExactSearch(context, docs, cardinality, k);
+            Map<Integer, Float> result;
+            if(profile != null) {
+                Timer timer = profile.getPluginBreakdown(context).getTimer(KNNQueryTimingType.EXACT_SEARCH_AFTER_ANN.toString());
+                timer.start();
+                try {
+                    result = doExactSearch(context, docs, cardinality, k);
+                } finally {
+                    timer.stop();
+                }
+            }
+            else {
+                result = doExactSearch(context, docs, cardinality, k);
+            }
             return new PerLeafResult(filterWeight == null ? null : filterBitSet, result);
         }
         return new PerLeafResult(filterWeight == null ? null : filterBitSet, docIdsToScoreMap);

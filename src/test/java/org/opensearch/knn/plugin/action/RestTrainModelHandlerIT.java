@@ -404,7 +404,7 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
         int dimension = 8;
 
         // Create a training index and randomly ingest data into it
-        String mapping = createKnnIndexNestedMapping(dimension, nestedFieldPath);
+        String mapping = createKnnIndexNestedMapping(dimension, nestedFieldPath, "lucene");
         createKnnIndex(trainingIndexName, mapping);
         int trainingDataCount = 200;
         bulkIngestRandomVectorsWithNestedField(trainingIndexName, nestedFieldPath, trainingDataCount, dimension);
@@ -475,7 +475,7 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
         int dimension = 8;
 
         // Create a training index and randomly ingest data into it
-        String mapping = createKnnIndexNestedMapping(dimension, nestedFieldPath);
+        String mapping = createKnnIndexNestedMapping(dimension, nestedFieldPath, "lucene");
         createKnnIndex(trainingIndexName, mapping);
         int trainingDataCount = 1100;
         bulkIngestRandomVectorsWithNestedField(trainingIndexName, nestedFieldPath, trainingDataCount, dimension);

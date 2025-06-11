@@ -667,6 +667,7 @@ public class KNNSettings {
     }
 
     public List<Setting<?>> getSettings() {
+
         List<Setting<?>> settings = Arrays.asList(
             INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD_SETTING,
             INDEX_KNN_ALGO_PARAM_EF_SEARCH_SETTING,

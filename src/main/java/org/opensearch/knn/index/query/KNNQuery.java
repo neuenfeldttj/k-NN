@@ -23,14 +23,9 @@ import org.apache.lucene.search.join.BitSetProducer;
 import org.opensearch.common.StopWatch;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
-import org.opensearch.knn.profile.query.KNNQueryProfileBreakdown;
-import org.opensearch.knn.profile.query.KNNQueryTimingType;
 import org.opensearch.search.internal.ContextIndexSearcher;
-import org.opensearch.search.profile.AbstractTimingProfileBreakdown;
-import org.opensearch.search.profile.query.ConcurrentQueryProfiler;
+import org.opensearch.search.profile.query.AbstractQueryTimingProfileBreakdown;
 import org.opensearch.search.profile.query.QueryProfiler;
-import org.opensearch.search.profile.query.QueryTimingProfileBreakdown;
-import org.opensearch.search.profile.query.TimingProfileContext;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -184,7 +179,7 @@ public class KNNQuery extends Query {
 
         ContextIndexSearcher context_searcher = (ContextIndexSearcher) searcher;
         QueryProfiler profiler = context_searcher.getQueryProfiler();
-        AbstractTimingProfileBreakdown profile;
+        AbstractQueryTimingProfileBreakdown profile;
         try {
             profile = profiler.getTopBreakdown();
         } catch (Exception e) {
@@ -208,9 +203,9 @@ public class KNNQuery extends Query {
         }
 
         if (filterWeight != null) {
-            return new KNNWeight(this, boost, filterWeight, (TimingProfileContext) profile);
+            return new KNNWeight(this, boost, filterWeight, profile);
         }
-        return new KNNWeight(this, boost, (TimingProfileContext) profile);
+        return new KNNWeight(this, boost, profile);
     }
 
     private Weight getFilterWeight(IndexSearcher searcher) throws IOException {

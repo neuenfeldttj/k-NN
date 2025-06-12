@@ -19,6 +19,7 @@ public class LongMetric extends Metric {
 
     public LongMetric(String name) {
         super(name);
+        value = 0L;
     }
 
     @Override

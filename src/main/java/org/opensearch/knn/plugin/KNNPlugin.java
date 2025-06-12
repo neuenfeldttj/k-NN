@@ -193,10 +193,10 @@ public class KNNPlugin extends Plugin
     }
 
     @Override
-    public ProfileBreakdownProvider getProfileBreakdownProvider() {
-        return new ProfileBreakdownProvider() {
+    public PluginMetricsProvider getPluginMetricsProvider() {
+        return new PluginMetricsProvider() {
             @Override
-            public Map<Class<? extends Query>, List<Metric>> getPluginMetrics() {
+            public Map<Class<? extends Query>, Map<String, Class<? extends Metric>>> getPluginMetrics() {
                 return Map.of(
                         KNNQuery.class, KNNMetrics.getKNNQueryMetrics(),
                         NativeEngineKnnVectorQuery.class, KNNMetrics.getNativeMetrics(),

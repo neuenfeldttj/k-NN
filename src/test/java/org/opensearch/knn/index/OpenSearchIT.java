@@ -40,6 +40,7 @@ import org.opensearch.core.rest.RestStatus;
 import org.opensearch.knn.common.annotation.ExpectRemoteBuildValidation;
 
 import javax.swing.plaf.basic.BasicInternalFrameTitlePane;
+import javax.swing.text.html.parser.Entity;
 import java.io.IOException;
 import java.net.URL;
 import java.util.*;
@@ -1362,7 +1363,6 @@ public class OpenSearchIT extends KNNRestTestCase {
 
         response = searchKNNIndex(INDEX_NAME, builder, k);
         responseBody = EntityUtils.toString(response.getEntity());
-        System.out.println(responseBody);
         results = parseProfileMetric(responseBody, "expand_nested_time", true);
         for(Long result : results) {
             assertNotEquals(0L, result.longValue());
@@ -1446,7 +1446,6 @@ public class OpenSearchIT extends KNNRestTestCase {
         deleteKNNIndex(INDEX_NAME);
     }
 
-
     public void testKNNSearchWithProfilerEnabled_MultipleResults() throws Exception {
         createKnnIndex(INDEX_NAME, createKnnIndexMapping(Arrays.asList("vector1", "vector2"), Arrays.asList(2, 3)));
         // Add docs with knn_vector fields
@@ -1524,8 +1523,6 @@ public class OpenSearchIT extends KNNRestTestCase {
 
     }
 
-    // TODO: create a Lucene filter where P <= k
-    // TODO: create a Lucene filter where P > k
     public void testKNNSearchWithProfilerEnabled_LuceneFilter() throws Exception {
         int dim = 3;
         String mapping = createKnnIndexMapping(FIELD_NAME, dim, "hnsw", "lucene", "l2", false);
@@ -1569,19 +1566,14 @@ public class OpenSearchIT extends KNNRestTestCase {
 
         Response response = searchKNNIndex(INDEX_NAME, builder, k);
         String responseBody = EntityUtils.toString(response.getEntity());
-        System.out.println(responseBody);
-//        List<Long> results = parseProfileMetric(responseBody, "cardinality");
-//        for(Long result : results) {
-//            assertEquals(7L, result.longValue());
-//        }
-//        results = parseProfileMetric(responseBody, "ann_search_time");
-//        for(Long result : results) {
-//            assertEquals(0L, result.longValue());
-//        }
-//        results = parseProfileMetric(responseBody, "exact_search_time");
-//        for(Long result : results) {
-//            assertNotEquals(0L, result.longValue());
-//        }
+        List<Long> results = parseProfileMetric(responseBody, "exact_search_time", false);
+        for(Long result : results) {
+            assertNotEquals(0L, result.longValue());
+        }
+        results = parseProfileMetric(responseBody, "ann_search_time", false);
+        for(Long result : results) {
+            assertNotEquals(0L, result.longValue());
+        }
         deleteKNNIndex(INDEX_NAME);
     }
 

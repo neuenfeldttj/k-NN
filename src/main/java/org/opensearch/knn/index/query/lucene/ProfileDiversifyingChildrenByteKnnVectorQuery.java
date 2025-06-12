@@ -44,7 +44,7 @@ public class ProfileDiversifyingChildrenByteKnnVectorQuery extends DiversifyingC
             KnnCollectorManager knnCollectorManager)
             throws IOException {
         if (profiler != null) {
-            Timer timer = profiler.getTopBreakdown().getPluginBreakdown(context).getTimer(LuceneEngineKnnTimingType.ANN_SEARCH.toString());
+            Timer timer = (Timer) profiler.getTopBreakdown().context(context).getMetric(LuceneEngineKnnTimingType.ANN_SEARCH.toString());
             timer.start();
             try {
                 return super.approximateSearch(context, acceptDocs, visitedLimit, knnCollectorManager);
@@ -62,7 +62,7 @@ public class ProfileDiversifyingChildrenByteKnnVectorQuery extends DiversifyingC
             LeafReaderContext context, DocIdSetIterator acceptIterator, QueryTimeout queryTimeout)
             throws IOException {
         if (profiler != null) {
-            Timer timer = profiler.getTopBreakdown().getPluginBreakdown(context).getTimer(LuceneEngineKnnTimingType.EXACT_SEARCH.toString());
+            Timer timer = (Timer) profiler.getTopBreakdown().context(context).getMetric(LuceneEngineKnnTimingType.EXACT_SEARCH.toString());
             timer.start();
             try {
                 return super.exactSearch(context, acceptIterator, queryTimeout);

@@ -11,39 +11,41 @@ import org.opensearch.search.profile.Metric;
 import org.opensearch.search.profile.Timer;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class KNNMetrics {
 
     public static final String NUM_NESTED_DOCS = "num_nested_docs";
     public static final String CARDINALITY = "cardinality";
 
-    public static List<Metric> getKNNQueryMetrics() {
-        List<Metric> metrics = new ArrayList<>();
+    public static Map<String, Class<? extends Metric>> getKNNQueryMetrics() {
+        Map<String, Class<? extends Metric>> metrics = new HashMap<>();
         for(KNNQueryTimingType type : KNNQueryTimingType.values()) {
-            metrics.add(new Timer(type.toString()));
+            metrics.put(type.toString(), Timer.class);
         }
 
-        metrics.add(new LongMetric(CARDINALITY));
+        metrics.put(CARDINALITY, LongMetric.class);
 
         return metrics;
     }
 
-    public static List<Metric> getNativeMetrics() {
-        List<Metric> metrics = getKNNQueryMetrics();
+    public static Map<String, Class<? extends Metric>> getNativeMetrics() {
+        Map<String, Class<? extends Metric>> metrics = getKNNQueryMetrics();
         for(NativeEngineKnnTimingType type : NativeEngineKnnTimingType.values()) {
-            metrics.add(new Timer(type.toString()));
+            metrics.put(type.toString(), Timer.class);
         }
 
-        metrics.add(new LongMetric(NUM_NESTED_DOCS));
+        metrics.put(NUM_NESTED_DOCS, LongMetric.class);
 
         return metrics;
     }
 
-    public static List<Metric> getLuceneMetrics() {
-        List<Metric> metrics = new ArrayList<>();
+    public static Map<String, Class<? extends Metric>> getLuceneMetrics() {
+        Map<String, Class<? extends Metric>> metrics = new HashMap<>();
         for(LuceneEngineKnnTimingType type : LuceneEngineKnnTimingType.values()) {
-            metrics.add(new Timer(type.toString()));
+            metrics.put(type.toString(), Timer.class);
         }
 
         return metrics;

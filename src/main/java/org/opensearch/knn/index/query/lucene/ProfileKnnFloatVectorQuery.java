@@ -39,7 +39,7 @@ public class ProfileKnnFloatVectorQuery extends KnnFloatVectorQuery {
             KnnCollectorManager knnCollectorManager)
             throws IOException {
         if (profiler != null) {
-            Timer timer = profiler.getTopBreakdown().getPluginBreakdown(context).getTimer(LuceneEngineKnnTimingType.ANN_SEARCH.toString());
+            Timer timer = (Timer) profiler.getTopBreakdown().context(context).getMetric(LuceneEngineKnnTimingType.ANN_SEARCH.toString());
             timer.start();
             try {
                 return super.approximateSearch(context, acceptDocs, visitedLimit, knnCollectorManager);
@@ -57,7 +57,7 @@ public class ProfileKnnFloatVectorQuery extends KnnFloatVectorQuery {
             LeafReaderContext context, DocIdSetIterator acceptIterator, QueryTimeout queryTimeout)
             throws IOException {
         if (profiler != null) {
-            Timer timer = profiler.getTopBreakdown().getPluginBreakdown(context).getTimer(LuceneEngineKnnTimingType.EXACT_SEARCH.toString());
+            Timer timer = (Timer) profiler.getTopBreakdown().context(context).getMetric(LuceneEngineKnnTimingType.EXACT_SEARCH.toString());
             timer.start();
             try {
                 return super.exactSearch(context, acceptIterator, queryTimeout);

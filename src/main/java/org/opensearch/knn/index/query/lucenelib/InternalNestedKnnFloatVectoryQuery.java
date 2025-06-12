@@ -60,7 +60,7 @@ public class InternalNestedKnnFloatVectoryQuery extends KnnFloatVectorQuery impl
     @Override
     public TopDocs knnExactSearch(LeafReaderContext context, DocIdSetIterator acceptIterator) throws IOException {
         if (profiler != null) {
-            Timer timer = profiler.getTopBreakdown().getPluginBreakdown(context).getTimer(LuceneEngineKnnTimingType.INTERNAL_EXACT.toString());
+            Timer timer = (Timer) profiler.getTopBreakdown().context(context).getMetric(LuceneEngineKnnTimingType.INTERNAL_EXACT.toString());
             timer.start();
             try {
                 return super.exactSearch(context, acceptIterator, null);

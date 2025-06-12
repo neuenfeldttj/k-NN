@@ -25,7 +25,7 @@ import org.opensearch.knn.index.query.common.QueryUtils;
 import org.opensearch.knn.profile.query.LuceneEngineKnnTimingType;
 import org.opensearch.search.internal.ContextIndexSearcher;
 import org.opensearch.search.profile.Timer;
-import org.opensearch.search.profile.query.AbstractQueryTimingProfileBreakdown;
+import org.opensearch.search.profile.query.AbstractQueryProfileBreakdown;
 import org.opensearch.search.profile.query.QueryProfiler;
 
 import java.io.IOException;
@@ -55,7 +55,7 @@ public class ExpandNestedDocsQuery extends Query {
         IndexReader reader = searcher.getIndexReader();
         List<LeafReaderContext> leafReaderContexts = reader.leaves();
         List<Map<Integer, Float>> perLeafResults;
-        AbstractQueryTimingProfileBreakdown profile = ((ContextIndexSearcher) searcher).getQueryProfiler().getTopBreakdown();
+        AbstractQueryProfileBreakdown profile = ((ContextIndexSearcher) searcher).getQueryProfiler().getTopBreakdown();
         perLeafResults = queryUtils.doSearch(searcher, leafReaderContexts, weight, profile);
         TopDocs[] topDocs = retrieveAll(searcher, leafReaderContexts, perLeafResults);
         int sum = 0;
@@ -84,8 +84,8 @@ public class ExpandNestedDocsQuery extends Query {
             nestedQueryTasks.add(() -> {
                 Bits queryFilter;
                 if(profiler != null) {
-                    AbstractQueryTimingProfileBreakdown profile = profiler.getTopBreakdown();
-                    Timer timer = profile.getPluginBreakdown(leafReaderContext).getTimer(LuceneEngineKnnTimingType.BITSET_CREATION.toString());
+                    AbstractQueryProfileBreakdown profile = profiler.getTopBreakdown();
+                    Timer timer = (Timer) profile.context(leafReaderContext).getMetric(LuceneEngineKnnTimingType.BITSET_CREATION.toString());
                     timer.start();
                     try {
                         queryFilter = queryUtils.createBits(leafReaderContext, filterWeight);
@@ -105,8 +105,8 @@ public class ExpandNestedDocsQuery extends Query {
                 );
                 TopDocs topDocs;
                 if(profiler != null) {
-                    AbstractQueryTimingProfileBreakdown profile = profiler.getTopBreakdown();
-                    Timer timer = profile.getPluginBreakdown(leafReaderContext).getTimer(LuceneEngineKnnTimingType.EXPAND_NESTED_EXACT.toString());
+                    AbstractQueryProfileBreakdown profile = profiler.getTopBreakdown();
+                    Timer timer = (Timer) profile.context(leafReaderContext).getMetric(LuceneEngineKnnTimingType.EXPAND_NESTED_EXACT.toString());
                     timer.start();
                     try {
                         topDocs = internalNestedKnnVectorQuery.knnExactSearch(leafReaderContext, allSiblings);

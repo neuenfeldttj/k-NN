@@ -39,13 +39,12 @@ import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.plugin.stats.KNNCounter;
-import org.opensearch.knn.profile.query.KNNQueryProfileBreakdown;
+import org.opensearch.knn.profile.LongMetric;
+import org.opensearch.knn.profile.query.KNNMetrics;
 import org.opensearch.knn.profile.query.KNNQueryTimingType;
-import org.opensearch.knn.profile.query.NativeEngineKnnProfileBreakdown;
-import org.opensearch.knn.profile.query.NativeEngineKnnTimingType;
-import org.opensearch.search.profile.AbstractTimingProfileBreakdown;
+import org.opensearch.search.profile.AbstractProfileBreakdown;
 import org.opensearch.search.profile.Timer;
-import org.opensearch.search.profile.query.AbstractQueryTimingProfileBreakdown;
+import org.opensearch.search.profile.query.AbstractQueryProfileBreakdown;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -82,9 +81,9 @@ public class KNNWeight extends Weight {
     private final QuantizationService quantizationService;
     private final KnnExplanation knnExplanation;
 
-    private final AbstractQueryTimingProfileBreakdown profile;
+    private final AbstractQueryProfileBreakdown profile;
 
-    public KNNWeight(KNNQuery query, float boost, AbstractQueryTimingProfileBreakdown profile) {
+    public KNNWeight(KNNQuery query, float boost, AbstractQueryProfileBreakdown profile) {
         super(query);
         this.knnQuery = query;
         this.boost = boost;
@@ -96,7 +95,7 @@ public class KNNWeight extends Weight {
         this.profile = profile;
     }
 
-    public KNNWeight(KNNQuery query, float boost, Weight filterWeight, AbstractQueryTimingProfileBreakdown profile) {
+    public KNNWeight(KNNQuery query, float boost, Weight filterWeight, AbstractQueryProfileBreakdown profile) {
         super(query);
         this.knnQuery = query;
         this.boost = boost;
@@ -305,7 +304,7 @@ public class KNNWeight extends Weight {
         StopWatch stopWatch = startStopWatch();
         final BitSet filterBitSet;
         if (profile != null) {
-            Timer filterTimer = profile.getPluginBreakdown(context).getTimer(KNNQueryTimingType.BITSET_CREATION.toString());
+            Timer filterTimer = (Timer) profile.context(context).getMetric(KNNQueryTimingType.BITSET_CREATION.toString());
             filterTimer.start();
             try {
                 filterBitSet = getFilteredDocsBitSet(context);
@@ -320,14 +319,9 @@ public class KNNWeight extends Weight {
         final int maxDoc = context.reader().maxDoc();
         int cardinality = filterBitSet.cardinality();
         if (profile != null) {
-            AbstractTimingProfileBreakdown pb = profile.getPluginBreakdown(context);
-            if(pb instanceof KNNQueryProfileBreakdown) {
-                ((KNNQueryProfileBreakdown) pb).addCardinality(cardinality);
-            } else if(pb instanceof NativeEngineKnnProfileBreakdown) {
-                ((NativeEngineKnnProfileBreakdown) pb).addCardinality(cardinality);
-            } else {
-                throw new IllegalStateException("Unexpected profile breakdown type: " + pb.getClass().getName());
-            }
+            AbstractProfileBreakdown pb = profile.context(context);
+            LongMetric cardMetric = (LongMetric) pb.getMetric(KNNMetrics.CARDINALITY);
+            cardMetric.setValue((long) cardinality);
         }
         // We don't need to go to JNI layer if no documents are found which satisfy the filters
         // We should give this condition a deeper look that where it should be placed. For now I feel this is a good
@@ -346,7 +340,7 @@ public class KNNWeight extends Weight {
         if (isFilteredExactSearchPreferred(cardinality)) {
             Map<Integer, Float> result;
             if(profile != null) {
-                Timer timer = profile.getPluginBreakdown(context).getTimer(KNNQueryTimingType.EXACT_SEARCH_AFTER_FILTER.toString());
+                Timer timer = (Timer) profile.context(context).getMetric(KNNQueryTimingType.EXACT_SEARCH_AFTER_FILTER.toString());
                 timer.start();
                 try {
                     result = doExactSearch(context, new BitSetIterator(filterBitSet, cardinality), cardinality, k);
@@ -369,7 +363,7 @@ public class KNNWeight extends Weight {
         StopWatch annStopWatch = startStopWatch();
         final Map<Integer, Float> docIdsToScoreMap;
         if (profile != null) {
-            Timer annTimer = profile.getPluginBreakdown(context).getTimer(KNNQueryTimingType.ANN_SEARCH.toString());
+            Timer annTimer = (Timer) profile.context(context).getMetric(KNNQueryTimingType.ANN_SEARCH.toString());
             annTimer.start();
             try {
                 docIdsToScoreMap = doANNSearch(reader, context, annFilter, cardinality, k);
@@ -390,7 +384,7 @@ public class KNNWeight extends Weight {
             final BitSetIterator docs = filterWeight != null ? new BitSetIterator(filterBitSet, cardinality) : null;
             Map<Integer, Float> result;
             if(profile != null) {
-                Timer timer = profile.getPluginBreakdown(context).getTimer(KNNQueryTimingType.EXACT_SEARCH_AFTER_ANN.toString());
+                Timer timer = (Timer) profile.context(context).getMetric(KNNQueryTimingType.EXACT_SEARCH_AFTER_ANN.toString());
                 timer.start();
                 try {
                     result = doExactSearch(context, docs, cardinality, k);
@@ -661,7 +655,7 @@ public class KNNWeight extends Weight {
         StopWatch stopWatch = startStopWatch();
         Map<Integer, Float> exactSearchResults;
         if (profile != null) {
-            Timer exactTimer = profile.getPluginBreakdown(leafReaderContext).getTimer(KNNQueryTimingType.EXACT_SEARCH.toString());
+            Timer exactTimer = (Timer) profile.context(leafReaderContext).getMetric(KNNQueryTimingType.EXACT_SEARCH.toString());
             exactTimer.start();
             try {
                 exactSearchResults = exactSearcher.searchLeaf(leafReaderContext, exactSearcherContext);

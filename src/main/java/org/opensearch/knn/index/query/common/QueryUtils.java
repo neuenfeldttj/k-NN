@@ -21,9 +21,8 @@ import org.apache.lucene.util.Bits;
 import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.index.query.iterators.GroupedNestedDocIdSetIterator;
 import org.opensearch.knn.profile.query.LuceneEngineKnnTimingType;
-import org.opensearch.search.profile.AbstractTimingProfileBreakdown;
 import org.opensearch.search.profile.Timer;
-import org.opensearch.search.profile.query.AbstractQueryTimingProfileBreakdown;
+import org.opensearch.search.profile.query.AbstractQueryProfileBreakdown;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -98,13 +97,13 @@ public class QueryUtils {
         final IndexSearcher indexSearcher,
         final List<LeafReaderContext> leafReaderContexts,
         final Weight weight,
-        AbstractQueryTimingProfileBreakdown profile
+        AbstractQueryProfileBreakdown profile
     ) throws IOException {
         List<Callable<Map<Integer, Float>>> tasks = new ArrayList<>(leafReaderContexts.size());
         for (LeafReaderContext leafReaderContext : leafReaderContexts) {
             tasks.add(() -> {
                 if (profile != null) {
-                    Timer timer = profile.getPluginBreakdown(leafReaderContext).getTimer(LuceneEngineKnnTimingType.EXPAND_NESTED_ANN.toString());
+                    Timer timer = (Timer) profile.context(leafReaderContext).getMetric(LuceneEngineKnnTimingType.EXPAND_NESTED_ANN.toString());
                     timer.start();
                     try {
                         return searchLeaf(leafReaderContext, weight);

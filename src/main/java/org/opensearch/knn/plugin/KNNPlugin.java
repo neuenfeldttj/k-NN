@@ -88,9 +88,7 @@ import org.opensearch.knn.plugin.transport.UpdateModelGraveyardAction;
 import org.opensearch.knn.plugin.transport.UpdateModelGraveyardTransportAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataTransportAction;
-import org.opensearch.knn.profile.query.KNNQueryProfileBreakdown;
-import org.opensearch.knn.profile.query.LuceneEngineKnnProfileBreakdown;
-import org.opensearch.knn.profile.query.NativeEngineKnnProfileBreakdown;
+import org.opensearch.knn.profile.query.KNNMetrics;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCache;
 import org.opensearch.knn.training.TrainingJobClusterStateListener;
 import org.opensearch.knn.training.TrainingJobRunner;
@@ -113,7 +111,7 @@ import org.opensearch.script.ScriptContext;
 import org.opensearch.script.ScriptEngine;
 import org.opensearch.script.ScriptService;
 import org.opensearch.search.deciders.ConcurrentSearchRequestDecider;
-import org.opensearch.search.profile.AbstractTimingProfileBreakdown;
+import org.opensearch.search.profile.Metric;
 import org.opensearch.threadpool.ExecutorBuilder;
 import org.opensearch.threadpool.FixedExecutorBuilder;
 import org.opensearch.threadpool.ThreadPool;
@@ -198,11 +196,11 @@ public class KNNPlugin extends Plugin
     public ProfileBreakdownProvider getProfileBreakdownProvider() {
         return new ProfileBreakdownProvider() {
             @Override
-            public Map<Class<? extends Query>, Class<? extends AbstractTimingProfileBreakdown>> getProfileBreakdown(boolean isConcurrentSearchEnabled) {
+            public Map<Class<? extends Query>, List<Metric>> getPluginMetrics() {
                 return Map.of(
-                        KNNQuery.class, KNNQueryProfileBreakdown.class,
-                        NativeEngineKnnVectorQuery.class, NativeEngineKnnProfileBreakdown.class,
-                        LuceneEngineKnnVectorQuery.class, LuceneEngineKnnProfileBreakdown.class
+                        KNNQuery.class, KNNMetrics.getKNNQueryMetrics(),
+                        NativeEngineKnnVectorQuery.class, KNNMetrics.getNativeMetrics(),
+                        LuceneEngineKnnVectorQuery.class, KNNMetrics.getLuceneMetrics()
                 );
             }
         };

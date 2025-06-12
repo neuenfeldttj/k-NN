@@ -28,10 +28,12 @@ import org.opensearch.knn.index.query.PerLeafResult;
 import org.opensearch.knn.index.query.ResultUtil;
 import org.opensearch.knn.index.query.common.QueryUtils;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
-import org.opensearch.knn.profile.query.NativeEngineKnnProfileBreakdown;
+import org.opensearch.knn.profile.LongMetric;
+import org.opensearch.knn.profile.query.KNNMetrics;
 import org.opensearch.knn.profile.query.NativeEngineKnnTimingType;
 import org.opensearch.search.internal.ContextIndexSearcher;
 import org.opensearch.search.profile.Timer;
+import org.opensearch.search.profile.query.AbstractQueryProfileBreakdown;
 import org.opensearch.search.profile.query.QueryProfiler;
 
 import java.io.IOException;
@@ -143,12 +145,13 @@ public class NativeEngineKnnVectorQuery extends Query {
             int finalI = i;
             nestedQueryTasks.add(() -> {
                 if(profiler != null) {
-                    NativeEngineKnnProfileBreakdown profile = (NativeEngineKnnProfileBreakdown) profiler.getTopBreakdown().getPluginBreakdown(leafReaderContext);
-                    Timer timer = profile.getTimer(NativeEngineKnnTimingType.EXPAND_NESTED_DOCS.toString());
+                    AbstractQueryProfileBreakdown profile = profiler.getTopBreakdown().context(leafReaderContext);
+                    Timer timer = (Timer) profile.getMetric(NativeEngineKnnTimingType.EXPAND_NESTED_DOCS.toString());
                     timer.start();
                     try {
                         PerLeafResult result = retrieveAll(leafReaderContext, knnWeight, perLeafResults, useQuantizedVectors, finalI);
-                        profile.setNumNestedDocs(result.getResult().size());
+                        LongMetric metric = (LongMetric) profile.getMetric(KNNMetrics.NUM_NESTED_DOCS);
+                        metric.setValue((long) result.getResult().size());
                         return result;
                     }
                     finally {
@@ -221,8 +224,8 @@ public class NativeEngineKnnVectorQuery extends Query {
             int finalI = i;
             rescoreTasks.add(() -> {
                 if(profiler != null) {
-                    NativeEngineKnnProfileBreakdown profile = (NativeEngineKnnProfileBreakdown) profiler.getTopBreakdown().getPluginBreakdown(leafReaderContext);
-                    Timer timer = profile.getTimer(NativeEngineKnnTimingType.RESCORE.toString());
+                    AbstractQueryProfileBreakdown profile = profiler.getTopBreakdown().context(leafReaderContext);
+                    Timer timer = (Timer) profile.getMetric(NativeEngineKnnTimingType.RESCORE.toString());
                     timer.start();
                     try {
                         return rescore(leafReaderContext, knnWeight, perLeafResults, k, finalI);

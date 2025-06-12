@@ -10,6 +10,8 @@ import org.apache.lucene.search.join.BitSetProducer;
 import org.apache.lucene.search.join.DiversifyingChildrenByteKnnVectorQuery;
 import org.apache.lucene.search.join.DiversifyingChildrenFloatKnnVectorQuery;
 import org.opensearch.knn.index.query.common.QueryUtils;
+import org.opensearch.knn.index.query.lucene.ProfileDiversifyingChildrenByteKnnVectorQuery;
+import org.opensearch.knn.index.query.lucene.ProfileDiversifyingChildrenFloatKnnVectorQuery;
 
 /**
  * A class to create a nested knn vector query for lucene
@@ -42,7 +44,7 @@ public class NestedKnnVectorQueryFactory {
                 new InternalNestedKnnByteVectoryQuery(fieldName, vector, filterQuery, k, parentFilter)
             ).queryUtils(QueryUtils.INSTANCE).build();
         }
-        return new DiversifyingChildrenByteKnnVectorQuery(fieldName, vector, filterQuery, k, parentFilter);
+        return new ProfileDiversifyingChildrenByteKnnVectorQuery(fieldName, vector, filterQuery, k, parentFilter);
     }
 
     /**
@@ -72,8 +74,6 @@ public class NestedKnnVectorQueryFactory {
                 new InternalNestedKnnFloatVectoryQuery(fieldName, vector, filterQuery, k, parentFilter)
             ).queryUtils(QueryUtils.INSTANCE).build();
         }
-
-        // TODO: wrap
-        return new DiversifyingChildrenFloatKnnVectorQuery(fieldName, vector, filterQuery, k, parentFilter);
+        return new ProfileDiversifyingChildrenFloatKnnVectorQuery(fieldName, vector, filterQuery, k, parentFilter);
     }
 }

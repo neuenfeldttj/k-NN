@@ -6,14 +6,14 @@
 package org.opensearch.knn.index.query;
 
 import lombok.extern.log4j.Log4j2;
-import org.apache.lucene.search.KnnByteVectorQuery;
-import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.common.QueryUtils;
+import org.opensearch.knn.index.query.lucene.ProfileKnnByteVectorQuery;
+import org.opensearch.knn.index.query.lucene.ProfileKnnFloatVectorQuery;
 import org.opensearch.knn.index.query.lucenelib.NestedKnnVectorQueryFactory;
 import org.opensearch.knn.index.query.lucene.LuceneEngineKnnVectorQuery;
 import org.opensearch.knn.index.query.nativelib.NativeEngineKnnVectorQuery;
@@ -175,10 +175,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
     ) {
         if (parentFilter == null) {
             assert expandNested == false : "expandNested is allowed to be true only for nested fields.";
-
-            // TODO: wrap
-            return new KnnByteVectorQuery(fieldName, byteVector, k, filterQuery);
-
+            return new ProfileKnnByteVectorQuery(fieldName, byteVector, k, filterQuery);
         } else {
             return NestedKnnVectorQueryFactory.createNestedKnnVectorQuery(
                 fieldName,
@@ -205,11 +202,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
     ) {
         if (parentFilter == null) {
             assert expandNested == false : "expandNested is allowed to be true only for nested fields.";
-
-            // TODO: wrap
-            return new KnnFloatVectorQuery(fieldName, floatVector, k, filterQuery);
-
-
+            return new ProfileKnnFloatVectorQuery(fieldName, floatVector, k, filterQuery);
         } else {
             return NestedKnnVectorQueryFactory.createNestedKnnVectorQuery(
                 fieldName,

@@ -1335,6 +1335,7 @@ public class OpenSearchIT extends KNNRestTestCase {
             .endObject();
         Response response = searchKNNIndex(INDEX_NAME, builder, k);
         String responseBody = EntityUtils.toString(response.getEntity());
+        System.out.println(responseBody);
         List<Long> results = parseProfileMetric(responseBody, "score_time", true);
         assertEquals(2, results.size());
 

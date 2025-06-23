@@ -180,9 +180,11 @@ public class KNNQuery extends Query {
 
         ContextIndexSearcher context_searcher = (ContextIndexSearcher) searcher;
         QueryProfiler profiler = context_searcher.getQueryProfiler();
-        AbstractQueryProfileBreakdown profile;
+        AbstractQueryProfileBreakdown profile = null;
         try {
-            profile = profiler.getTopBreakdown();
+            if(profiler != null) {
+                profile = profiler.getTopBreakdown();
+            }
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

@@ -55,7 +55,11 @@ public class ExpandNestedDocsQuery extends Query {
         IndexReader reader = searcher.getIndexReader();
         List<LeafReaderContext> leafReaderContexts = reader.leaves();
         List<Map<Integer, Float>> perLeafResults;
-        AbstractQueryProfileBreakdown profile = ((ContextIndexSearcher) searcher).getQueryProfiler().getTopBreakdown();
+        QueryProfiler profiler = ((ContextIndexSearcher) searcher).getQueryProfiler();
+        AbstractQueryProfileBreakdown profile = null;
+        if(profiler != null) {
+           profile = profiler.getTopBreakdown();
+        }
         perLeafResults = queryUtils.doSearch(searcher, leafReaderContexts, weight, profile);
         TopDocs[] topDocs = retrieveAll(searcher, leafReaderContexts, perLeafResults);
         int sum = 0;

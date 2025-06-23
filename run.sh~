@@ -1,0 +1,10 @@
+#!/bin/bash
+# OpenSearch Cluster End point url with hostname and port
+export ENDPOINT="http://localhost:9200"
+# Absolute file path of Workload param file
+
+opensearch-benchmark execute-test \
+    --target-hosts $ENDPOINT \
+    --workload vectorsearch \
+    --pipeline benchmark-only \
+    --kill-running-processes

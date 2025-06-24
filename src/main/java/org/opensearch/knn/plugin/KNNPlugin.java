@@ -111,7 +111,7 @@ import org.opensearch.script.ScriptContext;
 import org.opensearch.script.ScriptEngine;
 import org.opensearch.script.ScriptService;
 import org.opensearch.search.deciders.ConcurrentSearchRequestDecider;
-import org.opensearch.search.profile.Metric;
+import org.opensearch.search.profile.ProfileMetric;
 import org.opensearch.threadpool.ExecutorBuilder;
 import org.opensearch.threadpool.FixedExecutorBuilder;
 import org.opensearch.threadpool.ThreadPool;
@@ -196,7 +196,7 @@ public class KNNPlugin extends Plugin
     public PluginMetricsProvider getPluginMetricsProvider() {
         return new PluginMetricsProvider() {
             @Override
-            public Map<Class<? extends Query>, Map<String, Class<? extends Metric>>> getPluginMetrics() {
+            public Map<Class<? extends Query>, Map<String, Class<? extends ProfileMetric>>> getPluginMetrics() {
                 return Map.of(
                         KNNQuery.class, KNNMetrics.getKNNQueryMetrics(),
                         NativeEngineKnnVectorQuery.class, KNNMetrics.getNativeMetrics(),

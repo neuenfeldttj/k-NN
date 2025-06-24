@@ -22,7 +22,7 @@ import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.index.query.iterators.GroupedNestedDocIdSetIterator;
 import org.opensearch.knn.profile.query.LuceneEngineKnnTimingType;
 import org.opensearch.search.profile.Timer;
-import org.opensearch.search.profile.query.AbstractQueryProfileBreakdown;
+import org.opensearch.search.profile.ContextualProfileBreakdown;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -97,7 +97,7 @@ public class QueryUtils {
         final IndexSearcher indexSearcher,
         final List<LeafReaderContext> leafReaderContexts,
         final Weight weight,
-        AbstractQueryProfileBreakdown profile
+        ContextualProfileBreakdown profile
     ) throws IOException {
         List<Callable<Map<Integer, Float>>> tasks = new ArrayList<>(leafReaderContexts.size());
         for (LeafReaderContext leafReaderContext : leafReaderContexts) {

@@ -44,7 +44,7 @@ import org.opensearch.knn.profile.query.KNNMetrics;
 import org.opensearch.knn.profile.query.KNNQueryTimingType;
 import org.opensearch.search.profile.AbstractProfileBreakdown;
 import org.opensearch.search.profile.Timer;
-import org.opensearch.search.profile.query.AbstractQueryProfileBreakdown;
+import org.opensearch.search.profile.ContextualProfileBreakdown;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -81,9 +81,9 @@ public class KNNWeight extends Weight {
     private final QuantizationService quantizationService;
     private final KnnExplanation knnExplanation;
 
-    private final AbstractQueryProfileBreakdown profile;
+    private final ContextualProfileBreakdown profile;
 
-    public KNNWeight(KNNQuery query, float boost, AbstractQueryProfileBreakdown profile) {
+    public KNNWeight(KNNQuery query, float boost, ContextualProfileBreakdown profile) {
         super(query);
         this.knnQuery = query;
         this.boost = boost;
@@ -95,7 +95,7 @@ public class KNNWeight extends Weight {
         this.profile = profile;
     }
 
-    public KNNWeight(KNNQuery query, float boost, Weight filterWeight, AbstractQueryProfileBreakdown profile) {
+    public KNNWeight(KNNQuery query, float boost, Weight filterWeight, ContextualProfileBreakdown profile) {
         super(query);
         this.knnQuery = query;
         this.boost = boost;

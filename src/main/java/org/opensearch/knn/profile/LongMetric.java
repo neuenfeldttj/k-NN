@@ -7,11 +7,11 @@ package org.opensearch.knn.profile;
 
 import lombok.Getter;
 import lombok.Setter;
-import org.opensearch.search.profile.Metric;
+import org.opensearch.search.profile.ProfileMetric;
 
 import java.util.Map;
 
-public class LongMetric extends Metric {
+public class LongMetric extends ProfileMetric {
 
     @Getter
     @Setter

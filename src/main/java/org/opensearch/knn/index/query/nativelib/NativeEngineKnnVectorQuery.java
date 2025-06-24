@@ -33,7 +33,7 @@ import org.opensearch.knn.profile.query.KNNMetrics;
 import org.opensearch.knn.profile.query.NativeEngineKnnTimingType;
 import org.opensearch.search.internal.ContextIndexSearcher;
 import org.opensearch.search.profile.Timer;
-import org.opensearch.search.profile.query.AbstractQueryProfileBreakdown;
+import org.opensearch.search.profile.ContextualProfileBreakdown;
 import org.opensearch.search.profile.query.QueryProfiler;
 
 import java.io.IOException;
@@ -145,7 +145,7 @@ public class NativeEngineKnnVectorQuery extends Query {
             int finalI = i;
             nestedQueryTasks.add(() -> {
                 if(profiler != null) {
-                    AbstractQueryProfileBreakdown profile = profiler.getTopBreakdown().context(leafReaderContext);
+                    ContextualProfileBreakdown profile = profiler.getTopBreakdown().context(leafReaderContext);
                     Timer timer = (Timer) profile.getMetric(NativeEngineKnnTimingType.EXPAND_NESTED_DOCS.toString());
                     timer.start();
                     try {
@@ -224,7 +224,7 @@ public class NativeEngineKnnVectorQuery extends Query {
             int finalI = i;
             rescoreTasks.add(() -> {
                 if(profiler != null) {
-                    AbstractQueryProfileBreakdown profile = profiler.getTopBreakdown().context(leafReaderContext);
+                    ContextualProfileBreakdown profile = profiler.getTopBreakdown().context(leafReaderContext);
                     Timer timer = (Timer) profile.getMetric(NativeEngineKnnTimingType.RESCORE.toString());
                     timer.start();
                     try {

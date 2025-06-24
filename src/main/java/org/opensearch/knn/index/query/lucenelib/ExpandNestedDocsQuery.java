@@ -25,7 +25,7 @@ import org.opensearch.knn.index.query.common.QueryUtils;
 import org.opensearch.knn.profile.query.LuceneEngineKnnTimingType;
 import org.opensearch.search.internal.ContextIndexSearcher;
 import org.opensearch.search.profile.Timer;
-import org.opensearch.search.profile.query.AbstractQueryProfileBreakdown;
+import org.opensearch.search.profile.ContextualProfileBreakdown;
 import org.opensearch.search.profile.query.QueryProfiler;
 
 import java.io.IOException;
@@ -56,7 +56,7 @@ public class ExpandNestedDocsQuery extends Query {
         List<LeafReaderContext> leafReaderContexts = reader.leaves();
         List<Map<Integer, Float>> perLeafResults;
         QueryProfiler profiler = ((ContextIndexSearcher) searcher).getQueryProfiler();
-        AbstractQueryProfileBreakdown profile = null;
+        ContextualProfileBreakdown profile = null;
         if(profiler != null) {
            profile = profiler.getTopBreakdown();
         }
@@ -88,7 +88,7 @@ public class ExpandNestedDocsQuery extends Query {
             nestedQueryTasks.add(() -> {
                 Bits queryFilter;
                 if(profiler != null) {
-                    AbstractQueryProfileBreakdown profile = profiler.getTopBreakdown();
+                    ContextualProfileBreakdown profile = profiler.getTopBreakdown();
                     Timer timer = (Timer) profile.context(leafReaderContext).getMetric(LuceneEngineKnnTimingType.BITSET_CREATION.toString());
                     timer.start();
                     try {
@@ -109,7 +109,7 @@ public class ExpandNestedDocsQuery extends Query {
                 );
                 TopDocs topDocs;
                 if(profiler != null) {
-                    AbstractQueryProfileBreakdown profile = profiler.getTopBreakdown();
+                    ContextualProfileBreakdown profile = profiler.getTopBreakdown();
                     Timer timer = (Timer) profile.context(leafReaderContext).getMetric(LuceneEngineKnnTimingType.EXPAND_NESTED_EXACT.toString());
                     timer.start();
                     try {

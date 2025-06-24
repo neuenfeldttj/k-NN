@@ -5,14 +5,11 @@
 
 package org.opensearch.knn.profile.query;
 
-import org.opensearch.core.ParseField;
 import org.opensearch.knn.profile.LongMetric;
-import org.opensearch.search.profile.Metric;
+import org.opensearch.search.profile.ProfileMetric;
 import org.opensearch.search.profile.Timer;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public class KNNMetrics {
@@ -20,8 +17,8 @@ public class KNNMetrics {
     public static final String NUM_NESTED_DOCS = "num_nested_docs";
     public static final String CARDINALITY = "cardinality";
 
-    public static Map<String, Class<? extends Metric>> getKNNQueryMetrics() {
-        Map<String, Class<? extends Metric>> metrics = new HashMap<>();
+    public static Map<String, Class<? extends ProfileMetric>> getKNNQueryMetrics() {
+        Map<String, Class<? extends ProfileMetric>> metrics = new HashMap<>();
         for(KNNQueryTimingType type : KNNQueryTimingType.values()) {
             metrics.put(type.toString(), Timer.class);
         }
@@ -31,8 +28,8 @@ public class KNNMetrics {
         return metrics;
     }
 
-    public static Map<String, Class<? extends Metric>> getNativeMetrics() {
-        Map<String, Class<? extends Metric>> metrics = getKNNQueryMetrics();
+    public static Map<String, Class<? extends ProfileMetric>> getNativeMetrics() {
+        Map<String, Class<? extends ProfileMetric>> metrics = getKNNQueryMetrics();
         for(NativeEngineKnnTimingType type : NativeEngineKnnTimingType.values()) {
             metrics.put(type.toString(), Timer.class);
         }
@@ -42,8 +39,8 @@ public class KNNMetrics {
         return metrics;
     }
 
-    public static Map<String, Class<? extends Metric>> getLuceneMetrics() {
-        Map<String, Class<? extends Metric>> metrics = new HashMap<>();
+    public static Map<String, Class<? extends ProfileMetric>> getLuceneMetrics() {
+        Map<String, Class<? extends ProfileMetric>> metrics = new HashMap<>();
         for(LuceneEngineKnnTimingType type : LuceneEngineKnnTimingType.values()) {
             metrics.put(type.toString(), Timer.class);
         }

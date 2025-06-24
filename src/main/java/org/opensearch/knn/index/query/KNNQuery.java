@@ -24,8 +24,7 @@ import org.opensearch.common.StopWatch;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.search.internal.ContextIndexSearcher;
-import org.opensearch.search.profile.query.AbstractQueryProfileBreakdown;
-import org.opensearch.search.profile.query.AbstractQueryProfileBreakdown;
+import org.opensearch.search.profile.ContextualProfileBreakdown;
 import org.opensearch.search.profile.query.QueryProfiler;
 
 import java.io.IOException;
@@ -180,7 +179,7 @@ public class KNNQuery extends Query {
 
         ContextIndexSearcher context_searcher = (ContextIndexSearcher) searcher;
         QueryProfiler profiler = context_searcher.getQueryProfiler();
-        AbstractQueryProfileBreakdown profile = null;
+        ContextualProfileBreakdown profile = null;
         try {
             if(profiler != null) {
                 profile = profiler.getTopBreakdown();

@@ -22,6 +22,7 @@ import org.apache.lucene.search.Weight;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.opensearch.common.StopWatch;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.query.memoryoptsearch.MemoryOptimizedKNNWeight;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.search.internal.ContextIndexSearcher;
 import org.opensearch.search.profile.ContextualProfileBreakdown;
@@ -59,6 +60,7 @@ public class KNNQuery extends Query {
     @Setter
     @Getter
     private boolean explain;
+    private boolean isMemoryOptimizedSearch;
 
     // Note: ideally query should not have to deal with shard level information. Adding it for logging purposes only
     // TODO: ThreadContext does not work with logger, remove this from here once its figured out
@@ -204,10 +206,13 @@ public class KNNQuery extends Query {
             );
         }
 
-        if (filterWeight != null) {
-            return new KNNWeight(this, boost, filterWeight, profile);
+        if (isMemoryOptimizedSearch) {
+            // Using memory optimized search logic on index.
+            return new MemoryOptimizedKNNWeight(this, boost, filterWeight, searcher, k, profile);
         }
-        return new KNNWeight(this, boost, profile);
+
+        // Using native library to perform search on index.
+        return new DefaultKNNWeight(this, boost, filterWeight, profile);
     }
 
     private Weight getFilterWeight(IndexSearcher searcher) throws IOException {

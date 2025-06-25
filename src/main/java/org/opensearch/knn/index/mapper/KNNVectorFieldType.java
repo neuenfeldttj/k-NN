@@ -45,7 +45,8 @@ public class KNNVectorFieldType extends MappedFieldType {
     private static final Logger logger = LogManager.getLogger(KNNVectorFieldType.class);
     KNNMappingConfig knnMappingConfig;
     VectorDataType vectorDataType;
-    boolean memoryOptimizedSearchSupported;
+    // Whether this field type can be benefit from memory optimized search?
+    boolean memoryOptimizedSearchAvailable;
 
     /**
      * Constructor for KNNVectorFieldType.
@@ -59,8 +60,9 @@ public class KNNVectorFieldType extends MappedFieldType {
         super(name, false, false, true, TextSearchInfo.NONE, metadata);
         this.vectorDataType = vectorDataType;
         this.knnMappingConfig = annConfig;
-        this.memoryOptimizedSearchSupported = MemoryOptimizedSearchSupportSpec.supported(
+        this.memoryOptimizedSearchAvailable = MemoryOptimizedSearchSupportSpec.isSupportedFieldType(
             knnMappingConfig.getKnnMethodContext(),
+            annConfig.getQuantizationConfig(),
             annConfig.getModelId()
         );
     }
@@ -123,7 +125,7 @@ public class KNNVectorFieldType extends MappedFieldType {
         int dimension = knnMappingConfig.getDimension();
         CompressionLevel compressionLevel = knnMappingConfig.getCompressionLevel();
         Mode mode = knnMappingConfig.getMode();
-        return compressionLevel.getDefaultRescoreContext(mode, dimension);
+        return compressionLevel.getDefaultRescoreContext(mode, dimension, knnMappingConfig.getIndexCreatedVersion());
     }
 
     /**

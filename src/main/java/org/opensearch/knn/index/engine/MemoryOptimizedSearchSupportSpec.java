@@ -5,7 +5,14 @@
 
 package org.opensearch.knn.index.engine;
 
+import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
+import org.opensearch.knn.index.mapper.CompressionLevel;
+import org.opensearch.knn.index.mapper.KNNMappingConfig;
+import org.opensearch.knn.index.mapper.KNNVectorFieldType;
+import org.opensearch.knn.index.mapper.Mode;
 import org.opensearch.knn.memoryoptsearch.VectorSearcher;
+import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 
 import java.util.Map;
 import java.util.Optional;
@@ -27,15 +34,43 @@ public class MemoryOptimizedSearchSupportSpec {
     private static final Set<String> SUPPORTED_HNSW_ENCODING = Set.of(ENCODER_FLAT, ENCODER_SQ, ENCODER_BINARY);
 
     /**
+     * Determines whether a memory optimized searching should be applied during search.
+     * Note that even when `memory_optimized_search` is not enabled, it will enable memory optimized searching for `on_disk` mode
+     * with 1x compression.
+     *
+     * @param fieldType Field type
+     * @param indexName Name of the index
+     * @return True if memory optimized search should be used otherwise False.
+     */
+    public static boolean isSupportedFieldType(final KNNVectorFieldType fieldType, final String indexName) {
+        if (fieldType.isMemoryOptimizedSearchAvailable()) {
+            if (KNNSettings.isMemoryOptimizedKnnSearchModeEnabled(indexName)) {
+                return true;
+            }
+
+            // Even mem_opt_srch was disabled, we still enable this for on_disk mode with 1x compression.
+            final KNNMappingConfig mappingConfig = fieldType.getKnnMappingConfig();
+            return mappingConfig.getMode() == Mode.ON_DISK && mappingConfig.getCompressionLevel() == CompressionLevel.x1;
+        }
+
+        return false;
+    }
+
+    /**
      * Determine whether if a KNN field supports memory-optimized-search.
      * If it is supported, then the field can perform memory-optimized search via {@link VectorSearcher}.
      * Which can be obtained from a factory acquired from {@link KNNEngine#getVectorSearcherFactory()}.
      *
      * @param methodContextOpt   Optional method context.
-     * @param modelId            Optional model id that a mapping is referring to.
+     * @param quantizationConfig Quantization configuration.
+     * @param modelId Model id.
      * @return True if memory-optimized-search is supported, otherwise false.
      */
-    public static boolean supported(final Optional<KNNMethodContext> methodContextOpt, Optional<String> modelId) {
+    public static boolean isSupportedFieldType(
+        final Optional<KNNMethodContext> methodContextOpt,
+        final QuantizationConfig quantizationConfig,
+        final Optional<String> modelId
+    ) {
         // PQ is not supported.
         if (modelId.isPresent()) {
             return false;
@@ -61,16 +96,22 @@ public class MemoryOptimizedSearchSupportSpec {
                 return false;
             }
 
-            // We only support Flat, SQ and binary encoder for HNSW.
+            // Check whether it is a supported quantization.
+            if (quantizationConfig != null && quantizationConfig.getQuantizationType() != null) {
+                if (isSupportedQuantization(quantizationConfig) == false) {
+                    return false;
+                }
+            }
+
+            // We only support Flat and SQ encoder for HNSW.
             final Map<String, Object> parameters = methodComponentContext.getParameters();
             final Object methodComponentContextObj = parameters.get(METHOD_ENCODER_PARAMETER);
             if ((methodComponentContextObj instanceof MethodComponentContext) == false) {
                 return false;
             }
 
-            final MethodComponentContext encoderMethodComponentContext = (MethodComponentContext) methodComponentContextObj;
-
-            if (SUPPORTED_HNSW_ENCODING.contains(encoderMethodComponentContext.getName()) == false) {
+            // Check whether HNSW encoding is supported.
+            if (SUPPORTED_HNSW_ENCODING.contains(((MethodComponentContext) methodComponentContextObj).getName()) == false) {
                 return false;
             }
 
@@ -78,5 +119,12 @@ public class MemoryOptimizedSearchSupportSpec {
         }
 
         return false;
+    }
+
+    private static boolean isSupportedQuantization(final QuantizationConfig quantizationConfig) {
+        final ScalarQuantizationType quantizationType = quantizationConfig.getQuantizationType();
+        return quantizationType == ScalarQuantizationType.ONE_BIT
+            || quantizationType == ScalarQuantizationType.TWO_BIT
+            || quantizationType == ScalarQuantizationType.FOUR_BIT;
     }
 }

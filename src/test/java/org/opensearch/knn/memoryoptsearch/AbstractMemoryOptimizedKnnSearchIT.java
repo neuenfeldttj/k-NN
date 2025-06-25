@@ -22,12 +22,15 @@ import org.opensearch.knn.generate.IndexingType;
 import org.opensearch.knn.generate.SearchTestHelper;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.mapper.CompressionLevel;
+import org.opensearch.knn.index.mapper.Mode;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import static org.opensearch.knn.common.Constants.FIELD_FILTER;
 import static org.opensearch.knn.common.Constants.FIELD_TERM;
@@ -45,6 +48,7 @@ import static org.opensearch.knn.generate.DocumentsGenerator.KNN_FIELD_NAME;
 import static org.opensearch.knn.generate.DocumentsGenerator.MAX_VECTOR_ELEMENT_VALUE;
 import static org.opensearch.knn.generate.DocumentsGenerator.MIN_VECTOR_ELEMENT_VALUE;
 import static org.opensearch.knn.generate.DocumentsGenerator.NESTED_FIELD_NAME;
+import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX;
 import static org.opensearch.knn.index.KNNSettings.MEMORY_OPTIMIZED_KNN_SEARCH_MODE;
 
@@ -54,43 +58,89 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
     protected static final int NUM_DOCUMENTS = 200;
     protected static final int TOP_K = 20;
     protected static final String EMPTY_PARAMS = "{}";
+    protected static final Consumer<Settings.Builder> NO_ADDITIONAL_SETTINGS = settingsBuilder -> {};
+    protected static final Consumer<Settings.Builder> NO_BUILD_HNSW = settingsBuilder -> {
+        settingsBuilder.put(INDEX_KNN_ADVANCED_APPROXIMATE_THRESHOLD, -1);
+    };
 
     protected void doTestNonNestedIndex(
         final VectorDataType dataType,
         final String methodParams,
         final boolean isRadial,
-        final SpaceType spaceType
+        final SpaceType spaceType,
+        final Consumer<Settings.Builder> additionalSettings
+    ) {
+        doTestNonNestedIndex(
+            dataType,
+            methodParams,
+            isRadial,
+            spaceType,
+            additionalSettings,
+            Mode.NOT_CONFIGURED,
+            CompressionLevel.NOT_CONFIGURED
+        );
+    }
+
+    protected void doTestNonNestedIndex(
+        final VectorDataType dataType,
+        final String methodParams,
+        final boolean isRadial,
+        final SpaceType spaceType,
+        final Consumer<Settings.Builder> additionalSettings,
+        final Mode diskMode,
+        final CompressionLevel compressionLevel
     ) {
         // Make mapping schema string.
         final NonNestedNMappingSchema mapping = new NonNestedNMappingSchema().knnFieldName(KNN_FIELD_NAME)
             .dimension(DIMENSIONS)
             .dataType(dataType)
+            .mode(diskMode)
+            .compressionLevel(compressionLevel)
             .methodParamString(methodParams)
             .spaceType(spaceType)
             .filterFieldName(FILTER_FIELD_NAME)
             .idFieldName(ID_FIELD_NAME);
 
         final String mappingStr = mapping.createString();
-        final Schema schema = new Schema(mappingStr, dataType);
+        final Schema schema = new Schema(mappingStr, dataType, additionalSettings);
 
         // Start validate dense, sparse cases.
         doKnnSearchTest(spaceType, schema, IndexingType.DENSE, isRadial);
         doKnnSearchTest(spaceType, schema, IndexingType.SPARSE, isRadial);
     }
 
-    protected void doTestNestedIndex(final VectorDataType dataType, final String methodParams, final SpaceType spaceType) {
+    protected void doTestNestedIndex(
+        final VectorDataType dataType,
+        final String methodParams,
+        final SpaceType spaceType,
+        final Consumer<Settings.Builder> additionalSettings
+    ) {
+        doTestNestedIndex(dataType, methodParams, spaceType, additionalSettings, Mode.NOT_CONFIGURED, CompressionLevel.NOT_CONFIGURED);
+    }
+
+    protected void doTestNestedIndex(
+        final VectorDataType dataType,
+        final String methodParams,
+        final SpaceType spaceType,
+        final Consumer<Settings.Builder> additionalSettings,
+        final Mode diskMode,
+        final CompressionLevel compressionLevel
+    ) {
+
         // Make mapping schema string.
         final NestedMappingSchema mapping = new NestedMappingSchema().nestedFieldName(NESTED_FIELD_NAME)
             .knnFieldName(KNN_FIELD_NAME)
             .dimension(DIMENSIONS)
             .dataType(dataType)
+            .mode(diskMode)
+            .compressionLevel(compressionLevel)
             .methodParamString(methodParams)
             .filterFieldName(FILTER_FIELD_NAME)
             .spaceType(spaceType)
             .idFieldName(ID_FIELD_NAME);
 
         final String mappingStr = mapping.createString();
-        final Schema schema = new Schema(mappingStr, dataType);
+        final Schema schema = new Schema(mappingStr, dataType, additionalSettings);
 
         // Start validate dense, sparse cases.
         doKnnSearchTest(spaceType, schema, IndexingType.DENSE_NESTED, false);
@@ -98,11 +148,16 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
     }
 
     @SneakyThrows
-    private void doKnnSearchTest(final SpaceType spaceType, final Schema schema, final IndexingType indexingType, final boolean isRadial) {
-
+    protected void doKnnSearchTest(
+        final SpaceType spaceType,
+        final Schema schema,
+        final IndexingType indexingType,
+        final boolean isRadial,
+        final boolean enableMemoryOptimizedSearch
+    ) {
         // Create HNSW index
-        log.info("Create HNSW index");
-        createKnnHnswIndex(schema.mapping);
+        log.info("Create HNSW index, mapping=" + schema.mapping);
+        createKnnHnswIndex(schema.mapping, enableMemoryOptimizedSearch, schema.additionalSettings);
 
         // Prepare data set
         final Documents documents = DocumentsGenerator.create(indexingType, schema.vectorDataType, NUM_DOCUMENTS).generate();
@@ -132,6 +187,16 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
         // Delete index
         log.info("Delete index " + INDEX_NAME);
         deleteKNNIndex(INDEX_NAME);
+    }
+
+    @SneakyThrows
+    protected void doKnnSearchTest(
+        final SpaceType spaceType,
+        final Schema schema,
+        final IndexingType indexingType,
+        final boolean isRadial
+    ) {
+        doKnnSearchTest(spaceType, schema, indexingType, isRadial, true);
     }
 
     @SneakyThrows
@@ -167,7 +232,7 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
             );
             final float minSimil = documents.prepareAnswerSet(
                 queryVector,
-                spaceType.getKnnVectorSimilarityFunction().getVectorSimilarityFunction(),
+                spaceType.getKnnVectorSimilarityFunction(),
                 doFiltering,
                 isRadial
             );
@@ -195,10 +260,35 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
             final float minSimil = documents.prepareAnswerSet(
                 VectorDataType.BYTE,
                 queryVector,
-                spaceType.getKnnVectorSimilarityFunction().getVectorSimilarityFunction(),
+                spaceType.getKnnVectorSimilarityFunction(),
                 doFiltering,
                 isRadial
             );
+            final List<Documents.Result> results;
+
+            if (indexingType.isNested()) {
+                results = doNestedQuery(SearchTestHelper.convertToIntArray(queryVector), doExhaustiveSearch, doFiltering);
+            } else {
+                results = doQuery(
+                    SearchTestHelper.convertToIntArray(queryVector),
+                    doExhaustiveSearch,
+                    doFiltering,
+                    isRadial,
+                    isRadial ? Optional.of(minSimil) : Optional.empty()
+                );
+            }
+
+            documents.validateResponse(results);
+        } else if (schema.vectorDataType == VectorDataType.BINARY) {
+            final byte[] queryVector = SearchTestHelper.generateOneSingleBinaryVector(DIMENSIONS);
+            final float minSimil = documents.prepareAnswerSet(
+                VectorDataType.BINARY,
+                queryVector,
+                spaceType.getKnnVectorSimilarityFunction(),
+                doFiltering,
+                false
+            );
+
             final List<Documents.Result> results;
 
             if (indexingType.isNested()) {
@@ -419,20 +509,25 @@ public abstract class AbstractMemoryOptimizedKnnSearchIT extends KNNRestTestCase
         return results;
     }
 
-    private void createKnnHnswIndex(final String mapping) throws IOException {
+    protected void createKnnHnswIndex(
+        final String mapping,
+        final boolean enableMemOptimizedSearch,
+        final Consumer<Settings.Builder> additionalSettings
+    ) throws IOException {
         // Settings
-        final Settings settings = Settings.builder()
+        final Settings.Builder settingsBuilder = Settings.builder()
             .put("number_of_shards", 1)
             .put("number_of_replicas", 0)
             .put("index.use_compound_file", false)
             .put(KNN_INDEX, true)
-            .put(MEMORY_OPTIMIZED_KNN_SEARCH_MODE, true)
-            .build();
+            .put(MEMORY_OPTIMIZED_KNN_SEARCH_MODE, enableMemOptimizedSearch);
+
+        additionalSettings.accept(settingsBuilder);
 
         // Create a HNSW index
-        createKnnIndex(INDEX_NAME, settings, mapping);
+        createKnnIndex(INDEX_NAME, settingsBuilder.build(), mapping);
     }
 
-    private record Schema(String mapping, VectorDataType vectorDataType) {
+    protected record Schema(String mapping, VectorDataType vectorDataType, Consumer<Settings.Builder> additionalSettings) {
     }
 }

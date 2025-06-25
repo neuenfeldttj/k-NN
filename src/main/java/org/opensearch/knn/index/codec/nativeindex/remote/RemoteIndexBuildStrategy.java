@@ -11,6 +11,7 @@ import org.opensearch.cluster.metadata.RepositoryMetadata;
 import org.opensearch.common.UUIDs;
 import org.opensearch.common.annotation.ExperimentalApi;
 import org.opensearch.common.blobstore.BlobPath;
+import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuildStrategy;
@@ -40,8 +41,9 @@ import static org.opensearch.knn.common.KNNConstants.S3;
 import static org.opensearch.knn.common.KNNConstants.VECTORS_PATH;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_BLOB_FILE_EXTENSION;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_SETTING;
-import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_SETTING;
-import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_VECTOR_REPO_SETTING;
+import static org.opensearch.knn.index.KNNSettings.KNN_INDEX_REMOTE_VECTOR_BUILD_SIZE_MIN_SETTING;
+import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_VECTOR_BUILD_SIZE_MAX_SETTING;
+import static org.opensearch.knn.index.KNNSettings.KNN_REMOTE_VECTOR_REPOSITORY_SETTING;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.initializeVectorValues;
 
 /**
@@ -97,18 +99,30 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         }
 
         // If vector repo is not configured, return false
-        String vectorRepo = KNNSettings.state().getSettingValue(KNN_REMOTE_VECTOR_REPO_SETTING.getKey());
+        String vectorRepo = KNNSettings.state().getSettingValue(KNN_REMOTE_VECTOR_REPOSITORY_SETTING.getKey());
         if (vectorRepo == null || vectorRepo.isEmpty()) {
             log.debug("Vector repo is not configured, falling back to local build for index: [{}]", indexSettings.getIndex().getName());
             return false;
         }
 
         // If size threshold is not met, return false
-        if (vectorBlobLength < indexSettings.getValue(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_SETTING).getBytes()) {
+        if (vectorBlobLength < indexSettings.getValue(KNN_INDEX_REMOTE_VECTOR_BUILD_SIZE_MIN_SETTING).getBytes()) {
             log.debug(
                 "Data size [{}] is less than remote index build threshold [{}], falling back to local build for index [{}]",
                 vectorBlobLength,
-                indexSettings.getValue(KNN_INDEX_REMOTE_VECTOR_BUILD_THRESHOLD_SETTING).getBytes(),
+                indexSettings.getValue(KNN_INDEX_REMOTE_VECTOR_BUILD_SIZE_MIN_SETTING).getBytes(),
+                indexSettings.getIndex().getName()
+            );
+            return false;
+        }
+
+        // If size threshold is exceeded, return false
+        ByteSizeValue upperBound = KNNSettings.state().getSettingValue(KNN_REMOTE_VECTOR_BUILD_SIZE_MAX_SETTING.getKey());
+        if (upperBound.getBytes() > 0 && vectorBlobLength > upperBound.getBytes()) {
+            log.debug(
+                "Data size [{}] is greater than remote index build upper bound [{}], falling back to local build for index [{}]",
+                vectorBlobLength,
+                upperBound.getBytes(),
                 indexSettings.getIndex().getName()
             );
             return false;
@@ -146,20 +160,20 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
 
             // 4. Download index file and write to indexOutput
             readFromRepository(indexInfo, repositoryContext, remoteBuildStatusResponse);
-
             success = true;
+            return;
         } catch (Exception e) {
-            fallbackStrategy.buildAndWriteIndex(indexInfo);
+            log.error("Failed to build index remotely: " + indexInfo, e);
         } finally {
             metrics.endRemoteIndexBuildMetrics(success);
         }
+        fallbackStrategy.buildAndWriteIndex(indexInfo);
     }
 
     /**
      * Writes the required vector and doc ID data to the repository
      */
-    private void writeToRepository(RepositoryContext repositoryContext, BuildIndexParams indexInfo) throws IOException,
-        InterruptedException {
+    private void writeToRepository(RepositoryContext repositoryContext, BuildIndexParams indexInfo) {
         VectorRepositoryAccessor vectorRepositoryAccessor = repositoryContext.vectorRepositoryAccessor;
         boolean success = false;
         metrics.startRepositoryWriteMetrics();
@@ -172,8 +186,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             );
             success = true;
         } catch (InterruptedException | IOException e) {
-            log.debug("Repository write failed for vector field [{}]", indexInfo.getFieldName());
-            throw e;
+            throw new RuntimeException(String.format("Repository write failed for vector field [%s]", indexInfo.getFieldName()), e);
         } finally {
             metrics.endRepositoryWriteMetrics(success);
         }
@@ -183,8 +196,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
      * Submits a remote build request to the remote index build service
      * @return RemoteBuildResponse containing the response from the remote service
      */
-    private RemoteBuildResponse submitBuild(RepositoryContext repositoryContext, BuildIndexParams indexInfo, RemoteIndexClient client)
-        throws IOException {
+    private RemoteBuildResponse submitBuild(RepositoryContext repositoryContext, BuildIndexParams indexInfo, RemoteIndexClient client) {
         final RemoteBuildResponse remoteBuildResponse;
         boolean success = false;
         metrics.startBuildRequestMetrics();
@@ -200,8 +212,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             success = true;
             return remoteBuildResponse;
         } catch (IOException e) {
-            log.debug("Submit vector build failed for vector field [{}]", indexInfo.getFieldName());
-            throw e;
+            throw new RuntimeException(String.format("Submit vector build failed for vector field [%s]", indexInfo.getFieldName()), e);
         } finally {
             metrics.endBuildRequestMetrics(success);
         }
@@ -216,7 +227,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         RemoteBuildResponse remoteBuildResponse,
         BuildIndexParams indexInfo,
         RemoteIndexClient client
-    ) throws IOException, InterruptedException {
+    ) {
         RemoteBuildStatusResponse remoteBuildStatusResponse;
         metrics.startWaitingMetrics();
         try {
@@ -225,11 +236,11 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
                 .build();
             RemoteIndexWaiter waiter = RemoteIndexWaiterFactory.getRemoteIndexWaiter(client);
             remoteBuildStatusResponse = waiter.awaitVectorBuild(remoteBuildStatusRequest);
-            metrics.endWaitingMetrics();
             return remoteBuildStatusResponse;
         } catch (InterruptedException | IOException e) {
-            log.debug("Await vector build failed for vector field [{}]", indexInfo.getFieldName(), e);
-            throw e;
+            throw new RuntimeException(String.format("Await index build failed for vector field [%s]", indexInfo.getFieldName()), e);
+        } finally {
+            metrics.endWaitingMetrics();
         }
     }
 
@@ -240,7 +251,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
         BuildIndexParams indexInfo,
         RepositoryContext repositoryContext,
         RemoteBuildStatusResponse remoteBuildStatusResponse
-    ) throws IOException {
+    ) {
         metrics.startRepositoryReadMetrics();
         boolean success = false;
         try {
@@ -250,8 +261,7 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
             );
             success = true;
         } catch (Exception e) {
-            log.debug("Repository read failed for vector field [{}]", indexInfo.getFieldName());
-            throw e;
+            throw new RuntimeException(String.format("Repository read failed for vector field [%s]", indexInfo.getFieldName()), e);
         } finally {
             metrics.endRepositoryReadMetrics(success);
         }
@@ -259,14 +269,16 @@ public class RemoteIndexBuildStrategy implements NativeIndexBuildStrategy {
 
     /**
      * @return {@link BlobStoreRepository} referencing the repository
-     * @throws RepositoryMissingException if repository is not registered or if {@link KNNSettings#KNN_REMOTE_VECTOR_REPO_SETTING} is not set
+     * @throws RepositoryMissingException if repository is not registered or if {@link KNNSettings#KNN_REMOTE_VECTOR_REPOSITORY_SETTING} is not set
      */
     private BlobStoreRepository getRepository() throws RepositoryMissingException {
         RepositoriesService repositoriesService = repositoriesServiceSupplier.get();
         assert repositoriesService != null;
-        String vectorRepo = KNNSettings.state().getSettingValue(KNN_REMOTE_VECTOR_REPO_SETTING.getKey());
+        String vectorRepo = KNNSettings.state().getSettingValue(KNN_REMOTE_VECTOR_REPOSITORY_SETTING.getKey());
         if (vectorRepo == null || vectorRepo.isEmpty()) {
-            throw new RepositoryMissingException("Vector repository " + KNN_REMOTE_VECTOR_REPO_SETTING.getKey() + " is not registered");
+            throw new RepositoryMissingException(
+                "Vector repository " + KNN_REMOTE_VECTOR_REPOSITORY_SETTING.getKey() + " is not registered"
+            );
         }
         final Repository repository = repositoriesService.repository(vectorRepo);
         assert repository instanceof BlobStoreRepository : "Repository should be instance of BlobStoreRepository";

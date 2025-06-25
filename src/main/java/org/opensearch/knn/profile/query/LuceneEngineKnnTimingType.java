@@ -13,7 +13,8 @@ public enum LuceneEngineKnnTimingType {
     EXPAND_NESTED_ANN,
     BITSET_CREATION,
     EXPAND_NESTED_EXACT,
-    INTERNAL_EXACT;
+    INTERNAL_EXACT,
+    RESCORE;
 
     @Override
     public String toString() {

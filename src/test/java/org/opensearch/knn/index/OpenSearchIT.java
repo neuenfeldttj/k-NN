@@ -1736,6 +1736,45 @@ public class OpenSearchIT extends KNNRestTestCase {
         deleteKNNIndex(INDEX_NAME);
     }
 
+    public void testKNNSearchWithProfilerEnabled_RescoreLucene() throws Exception {
+        int dim = 3;
+        int k = 2;
+        String mapping = createKnnIndexMapping(FIELD_NAME, dim, "hnsw", "lucene", "l2", false);
+        createKnnIndex(INDEX_NAME, mapping);
+        // Add docs with knn_vector fields
+        for (int i = 1; i <= 20; i++) {
+            Float[] vector = {(float) i, (float) (i + 1), (float) (i + 2)};
+            addKnnDocWithNumericField(INDEX_NAME, Integer.toString(i), FIELD_NAME, vector, "rating", i);
+        }
+        float[] query = new float[dim];
+        Arrays.fill(query, 2);
+
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+                .startObject()
+                .field("profile", true)
+                .startObject("query")
+                .startObject("knn")
+                .startObject(FIELD_NAME)
+                .field("vector", query)
+                .field("k", k)
+                .field("rescore", true)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject();
+
+        Response response = searchKNNIndex(INDEX_NAME, builder, k);
+
+        String responseString = EntityUtils.toString(response.getEntity());
+        System.out.println(responseString);
+        assertEquals(2, parseIds(responseString).size());
+        List<Long> results = parseProfileMetric(responseString, LuceneEngineKnnTimingType.RESCORE.toString(), false);
+        for(Long result : results) {
+            assertNotEquals(0L, result.longValue());
+        }
+        deleteKNNIndex(INDEX_NAME);
+    }
+
     public void testKNNSearchWithProfilerEnabled_Radial() throws Exception {
         createKnnIndex(INDEX_NAME, createKnnIndexMapping(Arrays.asList("vector1", "vector2"), Arrays.asList(2, 3)));
         // Add docs with knn_vector fields

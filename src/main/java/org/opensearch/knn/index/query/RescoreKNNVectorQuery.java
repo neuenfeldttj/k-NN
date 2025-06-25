@@ -23,6 +23,11 @@ import org.opensearch.common.Nullable;
 import org.opensearch.common.StopWatch;
 import org.opensearch.knn.index.query.common.QueryUtils;
 import org.opensearch.knn.indices.ModelDao;
+import org.opensearch.knn.profile.query.LuceneEngineKnnTimingType;
+import org.opensearch.search.internal.ContextIndexSearcher;
+import org.opensearch.search.profile.ContextualProfileBreakdown;
+import org.opensearch.search.profile.Timer;
+import org.opensearch.search.profile.query.QueryProfiler;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -41,6 +46,8 @@ public class RescoreKNNVectorQuery extends Query {
     // TODO: ThreadContext does not work with logger, remove this from here once its figured out
     private final int shardId;
     private final ExactSearcher exactSearcher;
+
+    private QueryProfiler profiler;
 
     /**
      * Constructs a new RescoreKNNVectorQuery.
@@ -73,6 +80,7 @@ public class RescoreKNNVectorQuery extends Query {
     public Weight createWeight(IndexSearcher searcher, ScoreMode scoreMode, float boost) throws IOException {
         final Query rewrittenInnerQuery = searcher.rewrite(innerQuery);
         final Weight weight = searcher.createWeight(rewrittenInnerQuery, scoreMode, boost);
+        profiler = ((ContextIndexSearcher) searcher).getQueryProfiler();
         final StopWatch stopWatch = startStopWatch();
         final TopDocs[] perLeafResults = doRescore(searcher, weight);
         stopStopWatchAndLog(stopWatch);
@@ -87,7 +95,20 @@ public class RescoreKNNVectorQuery extends Query {
         List<LeafReaderContext> leafReaderContexts = indexSearcher.getIndexReader().leaves();
         List<Callable<TopDocs>> rescoreTasks = new ArrayList<>(leafReaderContexts.size());
         for (LeafReaderContext leafReaderContext : leafReaderContexts) {
-            rescoreTasks.add(() -> searchLeaf(exactSearcher, weight, k, leafReaderContext));
+            rescoreTasks.add(() -> {
+                if(profiler != null) {
+                    ContextualProfileBreakdown profile = profiler.getTopBreakdown().context(leafReaderContext);
+                    Timer timer = (Timer) profile.getMetric(LuceneEngineKnnTimingType.RESCORE.toString());
+                    timer.start();
+                    try {
+                        return searchLeaf(exactSearcher, weight, k, leafReaderContext);
+                    }
+                    finally {
+                        timer.stop();
+                    }
+                }
+                return searchLeaf(exactSearcher, weight, k, leafReaderContext);
+            });
         }
         return indexSearcher.getTaskExecutor().invokeAll(rescoreTasks).toArray(TopDocs[]::new);
     }

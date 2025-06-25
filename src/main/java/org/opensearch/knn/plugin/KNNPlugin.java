@@ -44,6 +44,7 @@ import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
 import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.query.KNNWeight;
+import org.opensearch.knn.index.query.RescoreKNNVectorQuery;
 import org.opensearch.knn.index.query.lucene.LuceneEngineKnnVectorQuery;
 import org.opensearch.knn.index.query.nativelib.NativeEngineKnnVectorQuery;
 import org.opensearch.knn.index.query.parser.KNNQueryBuilderParser;
@@ -199,7 +200,8 @@ public class KNNPlugin extends Plugin
                 return Map.of(
                         KNNQuery.class, KNNMetrics.getKNNQueryMetrics(),
                         NativeEngineKnnVectorQuery.class, KNNMetrics.getNativeMetrics(),
-                        LuceneEngineKnnVectorQuery.class, KNNMetrics.getLuceneMetrics()
+                        LuceneEngineKnnVectorQuery.class, KNNMetrics.getLuceneMetrics(),
+                        RescoreKNNVectorQuery.class, KNNMetrics.getLuceneMetrics()
                 );
             }
         };

@@ -8,7 +8,11 @@ package org.opensearch.knn.index.query.nativelib;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.apache.commons.math3.stat.descriptive.AggregateSummaryStatistics;
+import org.apache.commons.math3.stat.descriptive.SummaryStatistics;
+import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.IndexSearcher;
@@ -22,6 +26,7 @@ import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.util.Bits;
 import org.opensearch.common.StopWatch;
+import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.query.ExactSearcher;
 import org.opensearch.knn.index.query.KNNQuery;
@@ -31,9 +36,13 @@ import org.opensearch.knn.index.query.PerLeafResult;
 import org.opensearch.knn.index.query.ResultUtil;
 import org.opensearch.knn.index.query.common.QueryUtils;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 import org.opensearch.knn.profile.LongMetric;
+import org.opensearch.knn.profile.VectorStatsMetric;
 import org.opensearch.knn.profile.query.KNNMetrics;
 import org.opensearch.knn.profile.query.NativeEngineKnnTimingType;
+import org.opensearch.search.aggregations.metrics.Sum;
 import org.opensearch.search.profile.AbstractProfileBreakdown;
 import org.opensearch.search.profile.Profilers;
 import org.opensearch.search.profile.Timer;
@@ -110,11 +119,62 @@ public class NativeEngineKnnVectorQuery extends Query {
 
         TopDocs topK = TopDocs.merge(getTotalTopDoc(topDocs), topDocs);
 
+        Profilers profilers = KNNMetrics.getProfilers();
+        if(profilers != null) {
+            VectorStatsMetric metric = (VectorStatsMetric) profilers.getCurrentQueryProfiler().getTopBreakdown().context(this).getMetric(KNNMetrics.VECTOR_STATS);
+            metric.setDimensionsStats(computeTopKVectorStats(topK, leafReaderContexts));
+        }
+
         if (topK.scoreDocs.length == 0) {
             return new MatchNoDocsQuery().createWeight(indexSearcher, scoreMode, boost);
         }
         return queryUtils.createDocAndScoreQuery(reader, topK, knnWeight).createWeight(indexSearcher, scoreMode, boost);
     }
+
+    private List<SummaryStatistics> computeTopKVectorStats(TopDocs topK, List<LeafReaderContext> leafReaderContexts) throws IOException {
+        int dimension = (knnQuery.getQueryVector() != null) ? knnQuery.getQueryVector().length : knnQuery.getByteQueryVector().length;
+        List<SummaryStatistics> dimensionsStats = new ArrayList<>(dimension);
+        for(int i = 0; i < dimension; i++) {
+            dimensionsStats.add(new SummaryStatistics());
+        }
+
+        for(int i = 0; i < topK.scoreDocs.length; i++) {
+            Object vector = getVectorFromTopDocs(topK.scoreDocs[i], leafReaderContexts);
+            assert vector != null;
+            if(vector instanceof byte[] byteVector) {
+                for(int j = 0; j < dimension; j++) {
+                    dimensionsStats.get(j).addValue(byteVector[j]);
+                }
+            }
+            else if(vector instanceof float[] floatVector) {
+                for(int j = 0; j < dimension; j++) {
+                    dimensionsStats.get(j).addValue(floatVector[j]);
+                }
+            }
+            else throw new RuntimeException("vector is not of type float[] or byte[]!");
+        }
+        return dimensionsStats;
+    }
+
+    private Object getVectorFromTopDocs(ScoreDoc scoreDoc, List<LeafReaderContext> leafReaderContexts) throws IOException {
+        int globalDocId = scoreDoc.doc;
+
+        for (LeafReaderContext leafContext : leafReaderContexts) {
+            if (globalDocId >= leafContext.docBase && globalDocId < leafContext.docBase + leafContext.reader().maxDoc()) {
+                int localDocId = globalDocId - leafContext.docBase;
+
+                FieldInfo fieldInfo = FieldInfoExtractor.getFieldInfo(leafContext.reader(), knnQuery.getField());
+                assert fieldInfo != null;
+                KNNVectorValues<?> vectorValues = KNNVectorValuesFactory.getVectorValues(fieldInfo, leafContext.reader());
+
+                if (vectorValues.advance(localDocId) == localDocId) {
+                    return vectorValues.getVector();
+                }
+            }
+        }
+        return null;
+    }
+
 
     /**
      * When expandNestedDocs is set to true, additional nested documents are retrieved.

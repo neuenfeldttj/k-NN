@@ -8,6 +8,8 @@ package org.opensearch.knn.profile.query;
 import lombok.Getter;
 import lombok.Setter;
 import org.opensearch.knn.profile.LongMetric;
+import org.opensearch.knn.profile.VectorStatsMetric;
+import org.opensearch.search.internal.SearchContext;
 import org.opensearch.search.profile.ProfileMetric;
 import org.opensearch.search.profile.Profilers;
 import org.opensearch.search.profile.Timer;
@@ -20,10 +22,14 @@ public class KNNMetrics {
 
     public static final String NUM_NESTED_DOCS = "num_nested_docs";
     public static final String CARDINALITY = "cardinality";
+    public static final String VECTOR_STATS = "vector";
 
     @Getter
     @Setter
     private static Profilers profilers;
+    @Getter
+    @Setter
+    private static SearchContext searchContext;
 
     public static Collection<Supplier<ProfileMetric>> getKNNQueryMetrics() {
         Collection<Supplier<ProfileMetric>> metrics = new ArrayList<>();
@@ -43,6 +49,8 @@ public class KNNMetrics {
         }
 
         metrics.add(() -> new LongMetric(NUM_NESTED_DOCS));
+
+        metrics.add(() -> new VectorStatsMetric(VECTOR_STATS));
 
         return metrics;
     }

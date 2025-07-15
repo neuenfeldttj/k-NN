@@ -23,9 +23,11 @@ import org.apache.lucene.search.Weight;
 import org.apache.lucene.util.Bits;
 import org.opensearch.knn.index.query.common.QueryUtils;
 import org.opensearch.knn.profile.query.KNNMetrics;
-import org.opensearch.knn.profile.query.LuceneEngineKnnTimingType;
-import org.opensearch.search.profile.*;
+import org.opensearch.knn.profile.query.KNNQueryTimingType;
 import org.opensearch.search.profile.AbstractProfileBreakdown;
+import org.opensearch.search.profile.ContextualProfileBreakdown;
+import org.opensearch.search.profile.Profilers;
+import org.opensearch.search.profile.Timer;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -57,7 +59,7 @@ public class ExpandNestedDocsQuery extends Query {
         Profilers profilers = KNNMetrics.getProfilers();
         ContextualProfileBreakdown profile = null;
         if (profilers != null) {
-            profile = profilers.getCurrentQueryProfiler().getTopBreakdown();
+            profile = profilers.getCurrentQueryProfiler().getProfileBreakdown(this);
         }
         perLeafResults = queryUtils.doSearch(searcher, leafReaderContexts, weight, profile);
         TopDocs[] topDocs = retrieveAll(searcher, leafReaderContexts, perLeafResults);
@@ -87,8 +89,8 @@ public class ExpandNestedDocsQuery extends Query {
             nestedQueryTasks.add(() -> {
                 Bits queryFilter;
                 if (profilers != null) {
-                    AbstractProfileBreakdown profile = profilers.getCurrentQueryProfiler().getTopBreakdown().context(leafReaderContext);
-                    Timer timer = profile.getTimer(LuceneEngineKnnTimingType.BITSET_CREATION);
+                    AbstractProfileBreakdown profile = profilers.getCurrentQueryProfiler().getProfileBreakdown(this).context(leafReaderContext);
+                    Timer timer = profile.getTimer(KNNQueryTimingType.BITSET_CREATION);
                     timer.start();
                     try {
                         queryFilter = queryUtils.createBits(leafReaderContext, filterWeight);
@@ -104,19 +106,7 @@ public class ExpandNestedDocsQuery extends Query {
                     internalNestedKnnVectorQuery.getParentFilter(),
                     queryFilter
                 );
-                TopDocs topDocs;
-                if (profilers != null) {
-                    AbstractProfileBreakdown profile = profilers.getCurrentQueryProfiler().getTopBreakdown().context(leafReaderContext);
-                    Timer timer = profile.getTimer(LuceneEngineKnnTimingType.EXPAND_NESTED_EXACT);
-                    timer.start();
-                    try {
-                        topDocs = internalNestedKnnVectorQuery.knnExactSearch(leafReaderContext, allSiblings);
-                    } finally {
-                        timer.stop();
-                    }
-                } else {
-                    topDocs = internalNestedKnnVectorQuery.knnExactSearch(leafReaderContext, allSiblings);
-                }
+                TopDocs topDocs = internalNestedKnnVectorQuery.knnExactSearch(leafReaderContext, allSiblings);
                 // Update doc id from segment id to shard id
                 for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
                     scoreDoc.doc = scoreDoc.doc + leafReaderContext.docBase;

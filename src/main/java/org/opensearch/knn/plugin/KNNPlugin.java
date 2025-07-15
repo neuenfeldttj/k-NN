@@ -6,7 +6,6 @@
 package org.opensearch.knn.plugin;
 
 import com.google.common.collect.ImmutableList;
-import org.apache.lucene.search.Query;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.cluster.NamedDiff;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
@@ -14,7 +13,6 @@ import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.lucene.Lucene;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.IndexScopedSettings;
 import org.opensearch.common.settings.Setting;
@@ -112,8 +110,6 @@ import org.opensearch.script.ScriptContext;
 import org.opensearch.script.ScriptEngine;
 import org.opensearch.script.ScriptService;
 import org.opensearch.search.deciders.ConcurrentSearchRequestDecider;
-import org.opensearch.search.internal.SearchContext;
-import org.opensearch.search.profile.ProfileMetric;
 import org.opensearch.threadpool.ExecutorBuilder;
 import org.opensearch.threadpool.FixedExecutorBuilder;
 import org.opensearch.threadpool.ThreadPool;
@@ -196,20 +192,12 @@ public class KNNPlugin extends Plugin
 
     @Override
     public Optional<ProfileMetricsProvider> getQueryProfileMetricsProvider() {
-
         return Optional.of((searchContext, query) -> {
             KNNMetrics.setProfilers(searchContext.getProfilers());
-            if (query instanceof KNNQuery) {
+            if (query instanceof KNNQuery || query instanceof LuceneEngineKnnVectorQuery || query instanceof RescoreKNNVectorQuery) {
                 return KNNMetrics.getKNNQueryMetrics();
-            }
-            else if (query instanceof NativeEngineKnnVectorQuery) {
+            } else if (query instanceof NativeEngineKnnVectorQuery) {
                 return KNNMetrics.getNativeMetrics();
-            }
-            else if (query instanceof LuceneEngineKnnVectorQuery) {
-                return KNNMetrics.getLuceneMetrics();
-            }
-            else if (query instanceof RescoreKNNVectorQuery) {
-                return KNNMetrics.getLuceneMetrics();
             }
             return List.of();
         });

@@ -24,7 +24,7 @@ import org.opensearch.common.StopWatch;
 import org.opensearch.knn.index.query.common.QueryUtils;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.profile.query.KNNMetrics;
-import org.opensearch.knn.profile.query.LuceneEngineKnnTimingType;
+import org.opensearch.knn.profile.query.KNNQueryTimingType;
 import org.opensearch.search.profile.AbstractProfileBreakdown;
 import org.opensearch.search.profile.Profilers;
 import org.opensearch.search.profile.Timer;
@@ -95,8 +95,8 @@ public class RescoreKNNVectorQuery extends Query {
         for (LeafReaderContext leafReaderContext : leafReaderContexts) {
             rescoreTasks.add(() -> {
                 if (profilers != null) {
-                    AbstractProfileBreakdown profile = profilers.getCurrentQueryProfiler().getTopBreakdown().context(leafReaderContext);
-                    Timer timer = profile.getTimer(LuceneEngineKnnTimingType.RESCORE);
+                    AbstractProfileBreakdown profile = profilers.getCurrentQueryProfiler().getProfileBreakdown(this).context(leafReaderContext);
+                    Timer timer = profile.getTimer(KNNQueryTimingType.EXACT_SEARCH);
                     timer.start();
                     try {
                         return searchLeaf(exactSearcher, weight, k, leafReaderContext);

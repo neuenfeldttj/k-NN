@@ -10,6 +10,7 @@ import lombok.Setter;
 import org.apache.commons.math3.stat.descriptive.SummaryStatistics;
 import org.opensearch.search.profile.ProfileMetric;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,7 +18,7 @@ import java.util.Map;
 public class VectorStatsMetric extends ProfileMetric {
 
     @Setter
-    private List<SummaryStatistics> dimensionsStats;
+    private List<SummaryStatistics> dimensionsStats = new ArrayList<>();
 
     public VectorStatsMetric(String name) {
         super(name);
